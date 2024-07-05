@@ -28,6 +28,9 @@ jobs:
       PETSC_ARCH: arch-linux-c-opt-mkl
 
       # Compile flags (C/CXX/F)
+      # -------------
+      # generate position independent code (PIC) meaning that it is insensitive to
+      # the exact order in which the dynamic libs are loaded
       MPICH_FLAGS: -fPIC
       # we do not want to optimize too much to a specific CPU (march, mtune)
       # fp-model=precise is for MKL otherwise maybe not necessary
@@ -35,6 +38,11 @@ jobs:
 
       # store libraries in here
       LIB_DIR: /custom_libs
+
+
+      MPICH_BASE_UR: https://www.mpich.org/static/downloads
+      PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
+      MKL_BASE_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd
 
     if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') }}
 
@@ -44,62 +52,11 @@ jobs:
       # https://github.com/actions/checkout/issues/1474
     # - uses: actions/checkout@v3
 
-
-    - name: Setup environment variables
-      run: |
-
-        # MPICH
-        MPICH_NAME=mpich-${{ env.MPICH_VERSION }}
-        MPICH_TAR=${MPICH_NAME}.tar.gz
-        MPICH_URL=https://www.mpich.org/static/downloads/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
-        MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
-        MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
-        MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install
-        # generate position independent code (PIC) meaning that it is insensitive to
-        # the exact order in which the dynamic libs are loaded
-
-        # OPENBLAS
-        # FLAGS_OPENBLAS: USE_THREAD=0 USE_OPENMP=0 # could consider USE_THREAD=1 ?
-
-        # Intel oneAPI MKL
-        MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
-        MKL_URL=https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd/${MKL_NAME}.sh
-        ONEAPI_DIR=${{ env.LIB_DIR }}/${MKL_NAME}
-
-        # PETSC
-        PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
-        PETSC_TAR=${PETSC_NAME}.tar.gz
-        PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
-        PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
-
-        echo $PETSC_NAME
-        echo $PETSC_DIR
-
-        echo "PETSC_NAME_IN_ENV=${PETSC_NAME}" >> $GITHUB_ENV
-        echo "PETSC_DIR_IN_ENV=${PETSC_DIR}" >> $GITHUB_ENV
-
-
-
     - name: Prepare
       run: |
 
-        echo "this is petsc name ${PETSC_NAME}"
-        echo "this is petsc dir  ${PETSC_DIR}"
-
-        echo "this is petsc name in env ${PETSC_NAME_IN_ENV}"
-        echo "this is petsc dir in env  ${PETSC_DIR_IN_ENV}"
-
-        echo $LIB_DIR
-        echo $PETSC_FLAGS
-
-        echo PETSC_NAME
-        echo $PETSC_NAME
-
-        echo ONEAPI_DIR
-        echo $ONEAPI_DIR
-
-        echo "Creating ${LIB_DIR}"
-        mkdir $LIB_DIR
+        echo "Creating ${{ env.LIB_DIR }}"
+        mkdir ${{ env.LIB_DIR }}
 
         # ugly but for testing
         echo "Setting python"
@@ -109,28 +66,31 @@ jobs:
       run: |
 
         START_DIR=$PWD
-        echo "I am currently in ${START_DIR}"
+        echo "PWD is ${START_DIR}"
 
-        curl -O $URL_MPICH
-        tar -xzf $TAR_MPICH -C $LIB_DIR
-        cd $LIB_DIR/mpich-$VERSION_MPICH
+        MPICH_NAME=mpich-${{ env.MPICH_VERSION }}
+        MPICH_TAR=${MPICH_NAME}.tar.gz
+        MPICH_URL=https://www.mpich.org/static/downloads/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
+        MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
+        MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
+        MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install
 
-        # MPICH_BUILD_DIR=$(realpath build)
-        # MPICH_INSTALL_DIR=$(realpath installation)
+        curl -O ${MPICH_URL}
+        tar -xzf ${MPICH_TAR} -C ${{ env.LIB_DIR }}
 
-        mkdir $MPICH_BUILD_DIR
-        mkdir $MPICH_INSTALL_DIR
+        mkdir ${MPICH_BUILD_DIR}
+        mkdir ${MPICH_INSTALL_DIR}
 
-        cd $MPICH_BUILD_DIR
+        cd ${MPICH_BUILD_DIR}
 
         # enable-fast=all/yes sets O2,ndebug,alwaysinline
 
         ../configure \
-          CFLAGS=$MPICH_FLAGS \
-          CXXFLAGS=$MPICH_FLAGS \
-          FCLAGS=$MPICH_FLAGS \
-          FFLAGS=$MPICH_FLAGS \
-          --prefix=$MPICH_INSTALL_DIR \
+          CFLAGS=${MPICH_FLAGS} \
+          CXXFLAGS=${MPICH_FLAGS} \
+          FCLAGS=${MPICH_FLAGS} \
+          FFLAGS=${MPICH_FLAGS} \
+          --prefix=${MPICH_INSTALL_DIR} \
           --enable-fast=all \
           --with-device=ch3:nemesis \
           --with-pm=hydra \
@@ -141,20 +101,23 @@ jobs:
         make
         make install
 
-        cd $START_DIR
-
-        # expose env vars
         echo "MPICH_INSTALL_DIR=${MPICH_INSTALL_DIR}" >> $GITHUB_ENV
-        echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+        # echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
     - name: Install oneAPI MKL
       run: |
 
+        START_DIR=$PWD
+        echo "PWD is ${START_DIR}"
+
+        MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
+        ONEAPI_DIR=${{ env.LIB_DIR }}/oneAPI
+
         # Downloads install script
-        curl -O -L ${MKL_URL}
+        curl -O -L ${{ env.MKL_BASE_URL }}/${MKL_NAME}.sh
 
         # Install
-        sh ./l_onemkl_p_${VERSION_MKL}.664.sh -a --silent --eula accept --install-dir $ONEAPI_DIR
+        sh ./${MKL_NAME}.sh -a --silent --eula accept --install-dir $ONEAPI_DIR
 
         # set env variables from scripts
         source $ONEAPI_DIR/common/latest/oneapi-vars.sh
@@ -165,39 +128,44 @@ jobs:
         # expose the ones we need
         echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
         # Add to PKG_CONFIG_PATH
-        echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+        # echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
     - name: Build PETSc
       run: |
 
-        START_DIR=$PWD
+        # PETSC
+        PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
+        PETSC_TAR=${PETSC_NAME}.tar.gz
+        PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
+        PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
 
-        curl -O $URL_PETSC
-        tar -xzf $TAR_PETSC -C $LIB_DIR
+        curl -O $PETSC_URL
+        tar -xzf $PETSC_TAR -C $LIB_DIR
         cd $PETSC_DIR
-        # PETSC_DIR=$(realpath .)
 
         # configure
         $python configure \
-        --PETSC_ARCH=$PETSC_ARCH \
-        --COPTFLAGS=$PETSC_FLAGS \
-        --CXXOPTFLAGS=$PETSC_FLAGS \
-        --FOPTFLAGS=$PETSC_FLAGS \
+        --PETSC_ARCH=${PETSC_ARCH} \
+        --COPTFLAGS=${PETSC_FLAGS} \
+        --CXXOPTFLAGS=${PETSC_FLAGS} \
+        --FOPTFLAGS=${PETSC_FLAGS} \
         --with-x=0 \
         --with-debugging=0 \
         --with-fortran-bindings=0 \
         --with-mpi=1 \
-        --with-mpi-dir=$MPICH_INSTALL_DIR \
+        --with-mpi-dir=${MPICH_INSTALL_DIR} \
         --with-hypre=1 \
         --download-hypre \
-        --with-blaslapack-dir=$MKLROOT \
-        --with-mkl_pardiso-dir=$MKLROOT \
+        --with-blaslapack-dir=${MKLROOT} \
+        --with-mkl_pardiso-dir=${MKLROOT} \
         --with-shared-library=1
 
         make all
         make check
 
-        cd $START_DIR
+        echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
+        # PETSC_ARCH can be reference as ${{ env.PETSC_ARCH }} or $PETSC_ARCH
+        # echo "PETSC_ARCH=${{ env.PETSC_ARCH }}" >> $GITHUB_ENV
 
         # add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
@@ -205,7 +173,11 @@ jobs:
     - name: Build wheel for petsc4py
       run: |
 
-        cd $PETSC_DIR/src/binding/petsc4py
+        # We need PETSC_DIR and PETSC_ARCH for
+        echo "Using PETSC_DIR   ${PETSC_DIR}"
+        echo "Using PETSC_ARCH  ${PETSC_ARCH}"
+
+        cd ${PETSC_DIR}/src/binding/petsc4py
 
         # petsc4py reads configuration etc. from vars
         pip wheel --no-deps --w wheelhouse .

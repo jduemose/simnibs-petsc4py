@@ -13,25 +13,7 @@ env:
   VERSION_OPENBLAS: 0.3.27
   VERSION_PETSC: 3.21.2
 
-  TAR_MPICH: mpich-4.2.1.tar.gz
-  TAR_OPENBLAS: OpenBLAS-0.3.27.tar.gz
-  TAR_PETSC: petsc-3.21.2.tar.gz
 
-  URL_MPICH: https://www.mpich.org/static/downloads/4.2.1/mpich-4.2.1.tar.gz
-  URL_OPENBLAS: https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27.tar.gz
-  URL_PETSC: https://web.cels.anl.gov/projects/petsc/download/release-snapshots/petsc-3.21.2.tar.gz
-
-  LIB_DIR: /custom_libs # store libs in this dir
-
-  # generate position independent code (PIC) meaning that it is insensitive to
-  # the exact order in which the dynamic libs are loaded
-  MPICH_FLAGS: -fPIC
-  FLAGS_OPENBLAS: USE_THREAD=0 USE_OPENMP=0 # could consider USE_THREAD=1 ?
-  # we do not want to optimize too much to a specific CPU (march, mtune)
-  # fp-model=precise is for MKL otherwise maybe not necessary
-  PETSC_FLAGS: -O2 -s -march=x86_64 -fp-model=precise # C/CXX/F flags
-
-  PETSC_ARCH: arch-linux-c-opt-mkl
 
 # defaults:
 #   run:
@@ -47,16 +29,68 @@ jobs:
       # toolchain GCC 10
       image: quay.io/pypa/manylinux2014_x86_64
 
+    env:
+      # package versions are set in github actions variables:
+      #   settings - secrets and variables - actions - variables
+      PETSC_ARCH: arch-linux-c-opt-mkl
+
+      # Compile flags (C/CXX/F)
+      MPICH_FLAGS: -fPIC
+      # we do not want to optimize too much to a specific CPU (march, mtune)
+      # fp-model=precise is for MKL otherwise maybe not necessary
+      PETSC_FLAGS: -O2 -s -march=x86_64 -fp-model=precise
+
+      # store libraries in here
+      LIB_DIR: /custom_libs
+
     if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') }}
 
     steps:
       # checkout repository
       # checkout@v4 does not seem to work with containers
       # https://github.com/actions/checkout/issues/1474
-    - uses: actions/checkout@v3
+    # - uses: actions/checkout@v3
+
+
+    - name: Setup environment variables
+      run: |
+
+        # MPICH
+        MPICH_NAME=mpich-${{ vars.MPICH_VERSION }}
+        MPICH_TAR=${MPICH_NAME}.tar.gz
+        MPICH_URL=https://www.mpich.org/static/downloads/${vars.MPICH_VERSION}/${MPICH_TAR}
+        MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
+        MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
+        MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install
+        # generate position independent code (PIC) meaning that it is insensitive to
+        # the exact order in which the dynamic libs are loaded
+
+        # OPENBLAS
+        # FLAGS_OPENBLAS: USE_THREAD=0 USE_OPENMP=0 # could consider USE_THREAD=1 ?
+
+        # Intel oneAPI MKL
+        MKL_NAME=l_onemkl_p_${{ vars.VERSION_MKL }}.664
+        MKL_URL=https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd/${MKL_NAME}.sh
+        ONEAPI_DIR=${{ env.LIB_DIR }}/${MKL_NAME}
+
+        # PETSC
+        PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
+        PETSC_TAR=${PETSC_NAME}.tar.gz
+        PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}"
+        PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
 
     - name: Prepare
       run: |
+        echo $LIB_DIR
+        echo $PETSC_FLAGS
+
+        echo PETSC_NAME
+        echo $PETSC_NAME
+
+        echo ONEAPI_DIR
+        echo $ONEAPI_DIR
+
+        echo ${{ env }}
 
         echo "Creating ${LIB_DIR}"
         mkdir $LIB_DIR
@@ -74,8 +108,8 @@ jobs:
         tar -xzf $TAR_MPICH -C $LIB_DIR
         cd $LIB_DIR/mpich-$VERSION_MPICH
 
-        MPICH_BUILD_DIR=$(realpath build)
-        MPICH_INSTALL_DIR=$(realpath installation)
+        # MPICH_BUILD_DIR=$(realpath build)
+        # MPICH_INSTALL_DIR=$(realpath installation)
 
         mkdir $MPICH_BUILD_DIR
         mkdir $MPICH_INSTALL_DIR
@@ -109,20 +143,17 @@ jobs:
     - name: Install oneAPI MKL
       run: |
 
-        ONEAPI_INSTALL_DIR=$LIB_DIR/oneAPI
-        # mkdir $ONEAPI_INSTALL_DIR
-
         # Downloads install script
-        curl -O -L ${URL_MKL}
+        curl -O -L ${MKL_URL}
 
         # Install
-        sh ./l_onemkl_p_${VERSION_MKL}.664.sh -a --silent --eula accept --install-dir $ONEAPI_INSTALL_DIR
+        sh ./l_onemkl_p_${VERSION_MKL}.664.sh -a --silent --eula accept --install-dir $ONEAPI_DIR
 
         # set env variables from scripts
-        source $ONEAPI_INSTALL_DIR/common/latest/oneapi-vars.sh
+        source $ONEAPI_DIR/common/latest/oneapi-vars.sh
 
         # This sets a bunch of variables including MKLROOT, PKG_CONFIG_PATH
-        source $ONEAPI_INSTALL_DIR/mkl/latest/env/vars.sh
+        source $ONEAPI_DIR/mkl/latest/env/vars.sh
 
         # expose the ones we need
         echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
@@ -136,8 +167,8 @@ jobs:
 
         curl -O $URL_PETSC
         tar -xzf $TAR_PETSC -C $LIB_DIR
-        cd $LIB_DIR/petsc-$VERSION_PETSC
-        PETSC_DIR=$(realpath .)
+        cd $PETSC_DIR
+        # PETSC_DIR=$(realpath .)
 
         # configure
         $python configure \
@@ -162,11 +193,14 @@ jobs:
         cd $START_DIR
 
         # add to PKG_CONFIG_PATH
-        echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+        # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
     - name: Build wheel for petsc4py
       run: |
 
+        cd $PETSC_DIR/src/binding/petsc4py
+
+        # petsc4py reads configuration etc. from vars
         pip wheel --no-deps --w wheelhouse .
         auditwheel repair --plat manylinux2014_x86_64 wheelhouse/*.whl
 

@@ -1,0 +1,202 @@
+name: Linux - Build, Test, and Upload
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - v*
+  pull_request:
+    branches: [ main ]
+
+env:
+  VERSION_MPICH: 4.2.1
+  VERSION_OPENBLAS: 0.3.27
+  VERSION_PETSC: 3.21.2
+
+  TAR_MPICH: mpich-4.2.1.tar.gz
+  TAR_OPENBLAS: OpenBLAS-0.3.27.tar.gz
+  TAR_PETSC: petsc-3.21.2.tar.gz
+
+  URL_MPICH: https://www.mpich.org/static/downloads/4.2.1/mpich-4.2.1.tar.gz
+  URL_OPENBLAS: https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27.tar.gz
+  URL_PETSC: https://web.cels.anl.gov/projects/petsc/download/release-snapshots/petsc-3.21.2.tar.gz
+
+  LIB_DIR: /custom_libs # store libs in this dir
+
+  # generate position independent code (PIC) meaning that it is insensitive to
+  # the exact order in which the dynamic libs are loaded
+  MPICH_FLAGS: -fPIC
+  FLAGS_OPENBLAS: USE_THREAD=0 USE_OPENMP=0 # could consider USE_THREAD=1 ?
+  # we do not want to optimize too much to a specific CPU (march, mtune)
+  # fp-model=precise is for MKL otherwise maybe not necessary
+  PETSC_FLAGS: -O2 -s -march=x86_64 -fp-model=precise # C/CXX/F flags
+
+  PETSC_ARCH: arch-linux-c-opt-mkl
+
+# defaults:
+#   run:
+#     shell: bash
+#     working-directory: ./scripts
+
+jobs:
+  build:
+    name: Build and Upload Artifact
+    runs-on: ubuntu-latest
+    container:
+      # https://github.com/pypa/manylinux
+      # toolchain GCC 10
+      image: quay.io/pypa/manylinux2014_x86_64
+
+    if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') }}
+
+    steps:
+      # checkout repository
+      # checkout@v4 does not seem to work with containers
+      # https://github.com/actions/checkout/issues/1474
+    - uses: actions/checkout@v3
+
+    - name: Prepare
+      run: |
+
+        echo "Creating ${LIB_DIR}"
+        mkdir $LIB_DIR
+
+        # ugly but for testing
+        echo "Setting python"
+        echo "python=/opt/python/cp311-cp311/bin/python" >> $GITHUB_ENV
+
+    - name: Build MPICH
+      run: |
+
+        START_DIR=$PWD
+
+        curl -O $URL_MPICH
+        tar -xzf $TAR_MPICH -C $LIB_DIR
+        cd $LIB_DIR/mpich-$VERSION_MPICH
+
+        MPICH_BUILD_DIR=$(realpath build)
+        MPICH_INSTALL_DIR=$(realpath installation)
+
+        mkdir $MPICH_BUILD_DIR
+        mkdir $MPICH_INSTALL_DIR
+
+        cd $MPICH_BUILD_DIR
+
+        # enable-fast=all/yes sets O2,ndebug,alwaysinline
+
+        ../configure \
+          CFLAGS=$MPICH_FLAGS \
+          CXXFLAGS=$MPICH_FLAGS \
+          FCLAGS=$MPICH_FLAGS \
+          FFLAGS=$MPICH_FLAGS \
+          --prefix=$MPICH_INSTALL_DIR \
+          --enable-fast=all \
+          --with-device=ch3:nemesis \
+          --with-pm=hydra \
+          --with-hwloc=embedded \
+          --disable-maintainer-mode \
+          --disable-dependency-tracking
+
+        make
+        make install
+
+        cd $START_DIR
+
+        # expose env vars
+        echo "MPICH_INSTALL_DIR=${MPICH_INSTALL_DIR}" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+    - name: Install oneAPI MKL
+      run: |
+
+        ONEAPI_INSTALL_DIR=$LIB_DIR/oneAPI
+        # mkdir $ONEAPI_INSTALL_DIR
+
+        # Downloads install script
+        curl -O -L ${URL_MKL}
+
+        # Install
+        sh ./l_onemkl_p_${VERSION_MKL}.664.sh -a --silent --eula accept --install-dir $ONEAPI_INSTALL_DIR
+
+        # set env variables from scripts
+        source $ONEAPI_INSTALL_DIR/common/latest/oneapi-vars.sh
+
+        # This sets a bunch of variables including MKLROOT, PKG_CONFIG_PATH
+        source $ONEAPI_INSTALL_DIR/mkl/latest/env/vars.sh
+
+        # expose the ones we need
+        echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
+        # Add to PKG_CONFIG_PATH
+        echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+    - name: Build PETSc
+      run: |
+
+        START_DIR=$PWD
+
+        curl -O $URL_PETSC
+        tar -xzf $TAR_PETSC -C $LIB_DIR
+        cd $LIB_DIR/petsc-$VERSION_PETSC
+        PETSC_DIR=$(realpath .)
+
+        # configure
+        $python configure \
+        --PETSC_ARCH=$PETSC_ARCH \
+        --COPTFLAGS=$PETSC_FLAGS \
+        --CXXOPTFLAGS=$PETSC_FLAGS \
+        --FOPTFLAGS=$PETSC_FLAGS \
+        --with-x=0 \
+        --with-debugging=0 \
+        --with-fortran-bindings=0 \
+        --with-mpi=1 \
+        --with-mpi-dir=$MPICH_INSTALL_DIR \
+        --with-hypre=1 \
+        --download-hypre \
+        --with-blaslapack-dir=$MKLROOT \
+        --with-mkl_pardiso-dir=$MKLROOT \
+        --with-shared-library=1
+
+        make all
+        make check
+
+        cd $START_DIR
+
+        # add to PKG_CONFIG_PATH
+        echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+    - name: Build wheel for petsc4py
+      run: |
+
+        pip wheel --no-deps --w wheelhouse .
+        auditwheel repair --plat manylinux2014_x86_64 wheelhouse/*.whl
+
+    - name: Install PETSc4SimNIBS
+      run: $python -m pip install wheelhouse/petsc4simnibs*.whl
+
+  # test:
+  #   needs: build
+
+  #   steps:
+    - name: Test petsc4py wheel
+      run: |
+        $python -m pip install pytest
+        $python -m pytest petsc4py
+
+  # publish:
+  #   needs: build
+
+  #   steps:
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-wheels
+        path: wheelhouse/petsc4simnibs*.whl
+
+    # - name: Upload to PyPI
+    #   if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
+    #   run: |
+    #     $PYTHON -m pip install twine
+    #     $PYTHON -m twine upload wheelhouse/*.whl -u __token__ -p "$PASSWORD"
+    #   env:
+    #     PASSWORD: ${{ secrets.PYPI_TOKEN }}
+    #     PYTHON: /opt/python/cp38-cp38/bin/python

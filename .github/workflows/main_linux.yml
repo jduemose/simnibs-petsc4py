@@ -8,13 +8,6 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  VERSION_MPICH: 4.2.1
-  VERSION_OPENBLAS: 0.3.27
-  VERSION_PETSC: 3.21.2
-
-
-
 # defaults:
 #   run:
 #     shell: bash
@@ -56,7 +49,7 @@ jobs:
       run: |
 
         # MPICH
-        MPICH_NAME=mpich-${{ vars.MPICH_VERSION }}
+        MPICH_NAME=mpich-${{ env.MPICH_VERSION }}
         MPICH_TAR=${MPICH_NAME}.tar.gz
         MPICH_URL=https://www.mpich.org/static/downloads/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
         MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
@@ -76,8 +69,11 @@ jobs:
         # PETSC
         PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
         PETSC_TAR=${PETSC_NAME}.tar.gz
-        PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}"
+        PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
         PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
+
+      env:
+        MPICH_VERSION: ${{ vars.MPICH_VERSION }}
 
     - name: Prepare
       run: |

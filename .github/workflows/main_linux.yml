@@ -58,7 +58,7 @@ jobs:
         # MPICH
         MPICH_NAME=mpich-${{ vars.MPICH_VERSION }}
         MPICH_TAR=${MPICH_NAME}.tar.gz
-        MPICH_URL=https://www.mpich.org/static/downloads/${vars.MPICH_VERSION}/${MPICH_TAR}
+        MPICH_URL=https://www.mpich.org/static/downloads/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
         MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
         MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
         MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install

@@ -59,8 +59,11 @@ jobs:
         mkdir ${{ env.LIB_DIR }}
 
         # ugly but for testing
-        echo "Setting python"
-        echo "python=/opt/python/cp311-cp311/bin/python" >> $GITHUB_ENV
+        echo "Adding python to GITHUB_PATH"
+        # PYTHON_VERSION=cp311
+        echo "/opt/python/cp311-cp311/bin" >> $GITHUB_PATH
+        echo python is now set to
+        echo $(which python)
 
     - name: Build MPICH
       run: |
@@ -144,7 +147,7 @@ jobs:
         cd $PETSC_DIR
 
         # configure
-        $python configure \
+        python configure \
         --PETSC_ARCH=${PETSC_ARCH} \
         --COPTFLAGS=${PETSC_FLAGS} \
         --CXXOPTFLAGS=${PETSC_FLAGS} \
@@ -184,16 +187,17 @@ jobs:
         auditwheel repair --plat manylinux2014_x86_64 wheelhouse/*.whl
 
     - name: Install PETSc4SimNIBS
-      run: $python -m pip install wheelhouse/petsc4simnibs*.whl
+      run: pip install wheelhouse/*.whl
 
   # test:
   #   needs: build
 
   #   steps:
-    - name: Test petsc4py wheel
-      run: |
-        $python -m pip install pytest
-        $python -m pytest petsc4py
+    - name: Install test dependencies
+      run: pip install pytest -y
+
+    - name: Running petsc4py tests
+      run: pytest petsc4py
 
   # publish:
   #   needs: build
@@ -203,7 +207,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: linux-wheels
-        path: wheelhouse/petsc4simnibs*.whl
+        path: wheelhouse/*.whl
 
     # - name: Upload to PyPI
     #   if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}

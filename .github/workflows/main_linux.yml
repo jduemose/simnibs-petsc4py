@@ -62,7 +62,7 @@ jobs:
         # FLAGS_OPENBLAS: USE_THREAD=0 USE_OPENMP=0 # could consider USE_THREAD=1 ?
 
         # Intel oneAPI MKL
-        MKL_NAME=l_onemkl_p_${{ vars.VERSION_MKL }}.664
+        MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
         MKL_URL=https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd/${MKL_NAME}.sh
         ONEAPI_DIR=${{ env.LIB_DIR }}/${MKL_NAME}
 
@@ -72,11 +72,23 @@ jobs:
         PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
         PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
 
-      env:
-        MPICH_VERSION: ${{ vars.MPICH_VERSION }}
+        echo $PETSC_NAME
+        echo $PETSC_DIR
+
+        echo "PETSC_NAME_IN_ENV=${PETSC_NAME}" >> $GITHUB_ENV
+        echo "PETSC_DIR_IN_ENV=${PETSC_DIR}" >> $GITHUB_ENV
+
+
 
     - name: Prepare
       run: |
+
+        echo "this is petsc name ${PETSC_NAME}"
+        echo "this is petsc dir  ${PETSC_DIR}"
+
+        echo "this is petsc name in env ${PETSC_NAME_IN_ENV}"
+        echo "this is petsc dir in env  ${PETSC_DIR_IN_ENV}"
+
         echo $LIB_DIR
         echo $PETSC_FLAGS
 
@@ -85,8 +97,6 @@ jobs:
 
         echo ONEAPI_DIR
         echo $ONEAPI_DIR
-
-        echo ${{ env }}
 
         echo "Creating ${LIB_DIR}"
         mkdir $LIB_DIR
@@ -99,6 +109,7 @@ jobs:
       run: |
 
         START_DIR=$PWD
+        echo "I am currently in ${START_DIR}"
 
         curl -O $URL_MPICH
         tar -xzf $TAR_MPICH -C $LIB_DIR

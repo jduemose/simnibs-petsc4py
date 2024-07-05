@@ -68,14 +68,14 @@ jobs:
         START_DIR=$PWD
         echo "PWD is ${START_DIR}"
 
-        MPICH_NAME=mpich-${{ env.MPICH_VERSION }}
+        MPICH_NAME=mpich-${{ vars.MPICH_VERSION }}
         MPICH_TAR=${MPICH_NAME}.tar.gz
         MPICH_URL=https://www.mpich.org/static/downloads/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
         MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
         MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
         MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install
 
-        curl -O ${MPICH_URL}
+        curl -O -L ${MPICH_URL}
         tar -xzf ${MPICH_TAR} -C ${{ env.LIB_DIR }}
 
         mkdir ${MPICH_BUILD_DIR}
@@ -139,8 +139,8 @@ jobs:
         PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
         PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
 
-        curl -O $PETSC_URL
-        tar -xzf $PETSC_TAR -C $LIB_DIR
+        curl -O -L $PETSC_URL
+        tar -xzf $PETSC_TAR -C ${{ env.LIB_DIR }}
         cd $PETSC_DIR
 
         # configure

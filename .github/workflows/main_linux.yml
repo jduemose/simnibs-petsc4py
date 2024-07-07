@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       # https://github.com/pypa/manylinux
-      # toolchain GCC 10
-      image: quay.io/pypa/manylinux2014_x86_64
+      # NOTE: Intel MKL is incompatible with manylinux2014
+      image: quay.io/pypa/manylinux_2_28_x86_64
 
     env:
       # package versions are set in github actions variables:
@@ -61,9 +61,46 @@ jobs:
         # ugly but for testing
         echo "Adding python to GITHUB_PATH"
         # PYTHON_VERSION=cp311
-        echo "/opt/python/cp311-cp311/bin" >> $GITHUB_PATH
+        export PATH=/opt/python/cp311-cp311/bin:$PATH
+
+        echo the path is
+        echo $PATH
+
+        # GITHUB_PATH does not seem to have any effect inside a container!
+
+        # echo "/opt/python/cp311-cp311/bin" >> $GITHUB_PATH
         echo python is now set to
         echo $(which python)
+
+    - name: Install oneAPI MKL
+      run: |
+
+        START_DIR=$PWD
+        echo "PWD is ${START_DIR}"
+
+        echo the path is
+        echo $PATH
+
+        echo python is now set to
+        echo $(which python)
+
+        MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
+        ONEAPI_DIR=${{ env.LIB_DIR }}/oneAPI
+
+        # Download install script
+        curl -O -L ${{ env.MKL_BASE_URL }}/${MKL_NAME}.sh
+
+        # Install
+        sh ./${MKL_NAME}.sh -a --silent --eula accept --install-dir=$ONEAPI_DIR
+
+        # This sets a bunch of variables including MKLROOT, PKG_CONFIG_PATH
+        source $ONEAPI_DIR/setvars.sh
+
+        # expose the ones we need
+        echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
+        # Add to PKG_CONFIG_PATH
+        # echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
 
     - name: Build MPICH
       run: |
@@ -107,31 +144,6 @@ jobs:
         echo "MPICH_INSTALL_DIR=${MPICH_INSTALL_DIR}" >> $GITHUB_ENV
         # echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
-    - name: Install oneAPI MKL
-      run: |
-
-        START_DIR=$PWD
-        echo "PWD is ${START_DIR}"
-
-        MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
-        ONEAPI_DIR=${{ env.LIB_DIR }}/oneAPI
-
-        # Downloads install script
-        curl -O -L ${{ env.MKL_BASE_URL }}/${MKL_NAME}.sh
-
-        # Install
-        sh ./${MKL_NAME}.sh -a --silent --eula accept --install-dir $ONEAPI_DIR
-
-        # set env variables from scripts
-        source $ONEAPI_DIR/common/latest/oneapi-vars.sh
-
-        # This sets a bunch of variables including MKLROOT, PKG_CONFIG_PATH
-        source $ONEAPI_DIR/mkl/latest/env/vars.sh
-
-        # expose the ones we need
-        echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
-        # Add to PKG_CONFIG_PATH
-        # echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
     - name: Build PETSc
       run: |
@@ -142,9 +154,9 @@ jobs:
         PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
         PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
 
-        curl -O -L $PETSC_URL
-        tar -xzf $PETSC_TAR -C ${{ env.LIB_DIR }}
-        cd $PETSC_DIR
+        curl -O -L ${PETSC_URL}
+        tar -xzf ${PETSC_TAR} -C ${{ env.LIB_DIR }}
+        cd ${PETSC_DIR}
 
         # configure
         python configure \
@@ -180,24 +192,30 @@ jobs:
         echo "Using PETSC_DIR   ${PETSC_DIR}"
         echo "Using PETSC_ARCH  ${PETSC_ARCH}"
 
+        # petsc4py subdirectory
         cd ${PETSC_DIR}/src/binding/petsc4py
 
-        # petsc4py reads configuration etc. from vars
-        pip wheel --no-deps --w wheelhouse .
-        auditwheel repair --plat manylinux2014_x86_64 wheelhouse/*.whl
+        # petsc4py reads configuration etc. from
+        # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
+        pip wheel -v --no-deps --w wheelhouse .
+        # env vars AUDITWHEEL_POLICY, AUDITWHEEL_PLAT, AUDITWHEEL_ARCH are already set
+        auditwheel repair wheelhouse/*.whl
 
-    - name: Install PETSc4SimNIBS
-      run: pip install wheelhouse/*.whl
+    - name: Install petsc4py
+      run: pip install wheelhouse/*.whl -y
 
   # test:
   #   needs: build
 
   #   steps:
-    - name: Install test dependencies
-      run: pip install pytest -y
+    # - name: Install test dependencies
+    #   run: pip install pytest -y
 
     - name: Running petsc4py tests
-      run: pytest petsc4py
+      run: |
+
+        cd ${PETSC_DIR}/src/binding/petsc4py
+        python test/runtests.py
 
   # publish:
   #   needs: build

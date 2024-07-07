@@ -39,7 +39,7 @@ jobs:
       # store libraries in here
       LIB_DIR: /custom_libs
 
-      PYTHON: cp311
+      USE_PYTHON_VERSION: cp311
 
       MPICH_BASE_UR: https://www.mpich.org/static/downloads
       PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
@@ -65,23 +65,16 @@ jobs:
         # export PATH=/opt/python/cp311-cp311/bin:$PATH
 
 
-        # export PATH=/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin:$PATH
-        # echo "PYTHON_PATH=/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin" >> $GITHUB_ENV
+        # export PATH=/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin:$PATH
+        # echo "PYTHON_PATH=/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin" >> $GITHUB_ENV
 
         # GITHUB_PATH does not seem to have any effect inside a container!
 
         # Add python to the path
-        echo "/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin" >> $GITHUB_PATH
+        echo "/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin" >> $GITHUB_PATH
 
     - name: Install oneAPI MKL
       run: |
-
-        echo the path is
-        echo $PATH
-
-        echo python is now set to
-        echo $(which python)
-
 
         MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
         ONEAPI_DIR=${{ env.LIB_DIR }}/oneAPI

@@ -227,7 +227,7 @@ jobs:
       # if: !startsWith(github.ref, 'refs/tags/')
       with:
         name: linux-wheels
-        path: ${WHEEL_DIR}/*-${AUDITWHEEL_PLAT}.whl
+        path: "${{ env.WHEEL_DIR }}/*${{ vars.MANYLINUX_PLATFORM }}.whl"
 
     # - name: Release
     #   uses: softprops/action-gh-release@v2

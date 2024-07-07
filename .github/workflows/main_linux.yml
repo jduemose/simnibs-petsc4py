@@ -168,6 +168,8 @@ jobs:
         make check
 
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
+        echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
+
         # PETSC_ARCH can be reference as ${{ env.PETSC_ARCH }} or $PETSC_ARCH
         # echo "PETSC_ARCH=${{ env.PETSC_ARCH }}" >> $GITHUB_ENV
 
@@ -177,12 +179,10 @@ jobs:
     - name: Build wheel for petsc4py
       run: |
 
-        # We need PETSC_DIR and PETSC_ARCH for
         echo "Using PETSC_DIR   ${PETSC_DIR}"
         echo "Using PETSC_ARCH  ${PETSC_ARCH}"
 
-        # petsc4py subdirectory
-        cd ${PETSC_DIR}/src/binding/petsc4py
+        WHEEL_DIR=${PETSC4PY_DIR}/wheelhouse
 
         # petsc4py reads configuration etc. from
         # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
@@ -191,11 +191,13 @@ jobs:
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
         python -m pip install cython 'numpy<2' setuptools
-        python -m pip wheel -v --no-deps --no-build-isolation -w wheelhouse .
+        python -m pip wheel -v --no-deps --no-build-isolation -w ${WHEEL_DIR} ${PETSC4PY_DIR}
 
         # env vars defined by manylinux:
         # AUDITWHEEL_PLAT = AUDITWHEEL_POLICY + AUDITWHEEL_ARCH
-        auditwheel repair wheelhouse/*.whl
+        auditwheel repair ${WHEEL_DIR}/*.whl
+
+        echo "WHEEL_DIR=${WHEEL_DIR}" >> $GITHUB_ENV
 
     - name: Install petsc4py
       run: |
@@ -207,7 +209,7 @@ jobs:
         PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"
 
         # Name of the repaired wheel
-        python -m pip install wheelhouse/${PACKAGE_TAG}-${PYTHON_TAG}-${AUDITWHEEL_PLAT}.whl
+        python -m pip install ${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_TAG}-${AUDITWHEEL_PLAT}.whl
 
   # test:
   #   needs: build
@@ -217,7 +219,7 @@ jobs:
     #   run: pip install pytest
 
     - name: Running tests for petsc4py
-      run: python test/runtests.py --summary
+      run: python ${PETSC4PY_DIR}/test/runtests.py --summary
 
   # publish:
   #   needs: build
@@ -228,7 +230,7 @@ jobs:
       # if: !startsWith(github.ref, 'refs/tags/')
       with:
         name: linux-wheels
-        path: wheelhouse/*.whl
+        path: ${WHEEL_DIR}/*.whl
 
     # - name: Release
     #   uses: softprops/action-gh-release@v2

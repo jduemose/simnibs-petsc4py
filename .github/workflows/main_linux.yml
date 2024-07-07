@@ -20,7 +20,7 @@ jobs:
     container:
       # https://github.com/pypa/manylinux
       # NOTE: Intel MKL is incompatible with manylinux2014
-      image: quay.io/pypa/manylinux_2_28_x86_64
+      image: quay.io/pypa/${{ vars.MANYLINUX_PLATFORM }}
 
     env:
       # package versions are set in github actions variables:
@@ -190,16 +190,24 @@ jobs:
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
-        pip install cython 'numpy<2' setuptools
-
-        pip wheel -v --no-deps --no-build-isolation --w wheelhouse .
+        python -m pip install cython 'numpy<2' setuptools
+        python -m pip wheel -v --no-deps --no-build-isolation -w wheelhouse .
 
         # env vars defined by manylinux:
-        # AUDITWHEEL_POLICY, AUDITWHEEL_PLAT, AUDITWHEEL_ARCH
+        # AUDITWHEEL_PLAT = AUDITWHEEL_POLICY + AUDITWHEEL_ARCH
         auditwheel repair wheelhouse/*.whl
 
     - name: Install petsc4py
-      run: pip install wheelhouse/*.whl
+      run: |
+
+        echo "I am currently in"
+        echo $PWD
+
+        PYTHON_TAG="${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}"
+        PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"
+
+        # Name of the repaired wheel
+        python -m pip install wheelhouse/${PACKAGE_TAG}-${PYTHON_TAG}-${AUDITWHEEL_PLAT}.whl
 
   # test:
   #   needs: build

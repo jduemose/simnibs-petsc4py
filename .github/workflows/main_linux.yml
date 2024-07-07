@@ -66,24 +66,21 @@ jobs:
 
 
         # export PATH=/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin:$PATH
-
-        echo "PYTHON_PATH=/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin" >> $GITHUB_ENV
+        # echo "PYTHON_PATH=/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin" >> $GITHUB_ENV
 
         # GITHUB_PATH does not seem to have any effect inside a container!
-        echo "/opt/python/cp311-cp311/bin" >> $GITHUB_PATH
+
+        # Add python to the path
+        echo "/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin" >> $GITHUB_PATH
 
     - name: Install oneAPI MKL
       run: |
-
-        START_DIR=$PWD
-        echo "PWD is ${START_DIR}"
 
         echo the path is
         echo $PATH
 
         echo python is now set to
         echo $(which python)
-
 
 
         MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
@@ -106,11 +103,6 @@ jobs:
 
     - name: Build MPICH
       run: |
-
-        export PATH=${PYTHON_PATH}:$PATH
-
-        START_DIR=$PWD
-        echo "PWD is ${START_DIR}"
 
         MPICH_NAME=mpich-${{ vars.MPICH_VERSION }}
         MPICH_TAR=${MPICH_NAME}.tar.gz
@@ -152,8 +144,6 @@ jobs:
     - name: Build PETSc
       run: |
 
-        export PATH=${PYTHON_PATH}:$PATH
-
         # PETSC
         PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
         PETSC_TAR=${PETSC_NAME}.tar.gz
@@ -194,8 +184,6 @@ jobs:
     - name: Build wheel for petsc4py
       run: |
 
-        export PATH=${PYTHON_PATH}:$PATH
-
         # We need PETSC_DIR and PETSC_ARCH for
         echo "Using PETSC_DIR   ${PETSC_DIR}"
         echo "Using PETSC_ARCH  ${PETSC_ARCH}"
@@ -210,11 +198,7 @@ jobs:
         auditwheel repair wheelhouse/*.whl
 
     - name: Install petsc4py
-      run: |
-
-        export PATH=${PYTHON_PATH}:$PATH
-
-        pip install wheelhouse/*.whl -y
+      run: pip install wheelhouse/*.whl -y
 
   # test:
   #   needs: build
@@ -223,10 +207,9 @@ jobs:
     # - name: Install test dependencies
     #   run: pip install pytest -y
 
-    - name: Running petsc4py tests
+    - name: Running tests for petsc4py
       run: |
 
-        export PATH=${PYTHON_PATH}:$PATH
         cd ${PETSC_DIR}/src/binding/petsc4py
         python test/runtests.py
 

@@ -39,6 +39,7 @@ jobs:
       # store libraries in here
       LIB_DIR: /custom_libs
 
+      PYTHON: cp311
 
       MPICH_BASE_UR: https://www.mpich.org/static/downloads
       PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
@@ -59,18 +60,17 @@ jobs:
         mkdir ${{ env.LIB_DIR }}
 
         # ugly but for testing
-        echo "Adding python to GITHUB_PATH"
+        # echo "Adding python to GITHUB_PATH"
         # PYTHON_VERSION=cp311
-        export PATH=/opt/python/cp311-cp311/bin:$PATH
+        # export PATH=/opt/python/cp311-cp311/bin:$PATH
 
-        echo the path is
-        echo $PATH
+
+        # export PATH=/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin:$PATH
+
+        echo "PYTHON_PATH=/opt/python/${{ env.PYTHON }}-${{ env.PYTHON }}/bin" >> $GITHUB_ENV
 
         # GITHUB_PATH does not seem to have any effect inside a container!
-
-        # echo "/opt/python/cp311-cp311/bin" >> $GITHUB_PATH
-        echo python is now set to
-        echo $(which python)
+        echo "/opt/python/cp311-cp311/bin" >> $GITHUB_PATH
 
     - name: Install oneAPI MKL
       run: |
@@ -83,6 +83,8 @@ jobs:
 
         echo python is now set to
         echo $(which python)
+
+
 
         MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
         ONEAPI_DIR=${{ env.LIB_DIR }}/oneAPI
@@ -104,6 +106,8 @@ jobs:
 
     - name: Build MPICH
       run: |
+
+        export PATH=${PYTHON_PATH}:$PATH
 
         START_DIR=$PWD
         echo "PWD is ${START_DIR}"
@@ -148,6 +152,8 @@ jobs:
     - name: Build PETSc
       run: |
 
+        export PATH=${PYTHON_PATH}:$PATH
+
         # PETSC
         PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
         PETSC_TAR=${PETSC_NAME}.tar.gz
@@ -188,6 +194,8 @@ jobs:
     - name: Build wheel for petsc4py
       run: |
 
+        export PATH=${PYTHON_PATH}:$PATH
+
         # We need PETSC_DIR and PETSC_ARCH for
         echo "Using PETSC_DIR   ${PETSC_DIR}"
         echo "Using PETSC_ARCH  ${PETSC_ARCH}"
@@ -202,7 +210,11 @@ jobs:
         auditwheel repair wheelhouse/*.whl
 
     - name: Install petsc4py
-      run: pip install wheelhouse/*.whl -y
+      run: |
+
+        export PATH=${PYTHON_PATH}:$PATH
+
+        pip install wheelhouse/*.whl -y
 
   # test:
   #   needs: build
@@ -214,6 +226,7 @@ jobs:
     - name: Running petsc4py tests
       run: |
 
+        export PATH=${PYTHON_PATH}:$PATH
         cd ${PETSC_DIR}/src/binding/petsc4py
         python test/runtests.py
 

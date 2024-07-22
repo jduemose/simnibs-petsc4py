@@ -193,7 +193,11 @@ jobs:
 
         # env vars defined by manylinux:
         # AUDITWHEEL_PLAT = AUDITWHEEL_POLICY + AUDITWHEEL_ARCH
-        auditwheel repair -w ${WHEEL_DIR} ${WHEEL_DIR}/*.whl
+        auditwheel repair \
+          --exclude libmkl_core.so.2 \
+          --exclude libmkl_intel_lp64.so.2 \
+          --exclude libmkl_gnu_thread.so.2 \
+          -w ${WHEEL_DIR} ${WHEEL_DIR}/*.whl
 
         # Filename of the fixed wheel
         PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"

@@ -184,9 +184,6 @@ jobs:
         # petsc4py reads configuration etc. from
         # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
 
-        # INJECT CODE HERE...
-        # ${PETSC4PY_DIR}/src/petsc4py/__init__.py
-
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
@@ -222,7 +219,7 @@ jobs:
         python -m wheel pack ${WHEEL_DIR}/${PACKAGE_TAG} -d ${WHEEL_DIR}
 
         echo "WHEEL_DIR=${WHEEL_DIR}" >> $GITHUB_ENV
-        echo "WHEEL_FILENAME=${WHEEL_FILENAME}" << $GITHUB_ENV
+        echo "WHEEL_FILENAME=${WHEEL_FILENAME}" >> $GITHUB_ENV
 
     - name: Install petsc4py
       run: python -m pip install ${WHEEL_FILENAME}

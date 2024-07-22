@@ -51,7 +51,7 @@ jobs:
       # checkout repository
       # checkout@v4 does not seem to work with containers
       # https://github.com/actions/checkout/issues/1474
-    # - uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
     - name: Prepare
       run: |
@@ -92,7 +92,6 @@ jobs:
         echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
         # Add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-
 
     - name: Build MPICH
       run: |
@@ -148,6 +147,7 @@ jobs:
         cd ${PETSC_DIR}
 
         # configure
+        # PETSC_ARCH can be referenced as ${{ env.PETSC_ARCH }} or $PETSC_ARCH
         python configure \
         --PETSC_ARCH=${PETSC_ARCH} \
         --COPTFLAGS=${PETSC_FLAGS} \
@@ -170,9 +170,6 @@ jobs:
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
 
-        # PETSC_ARCH can be reference as ${{ env.PETSC_ARCH }} or $PETSC_ARCH
-        # echo "PETSC_ARCH=${{ env.PETSC_ARCH }}" >> $GITHUB_ENV
-
         # add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
@@ -187,26 +184,48 @@ jobs:
         # petsc4py reads configuration etc. from
         # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
 
+        # INJECT CODE HERE...
+        # ${PETSC4PY_DIR}/src/petsc4py/__init__.py
+
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
-        python -m pip install cython 'numpy<2' setuptools
+        python -m pip install cython 'numpy<2' setuptools mkl==${{ vars.MKL_VERSION }} mkl-service
+
         python -m pip wheel -v --no-deps --no-build-isolation -w ${WHEEL_DIR} ${PETSC4PY_DIR}
 
         # env vars defined by manylinux:
         # AUDITWHEEL_PLAT = AUDITWHEEL_POLICY + AUDITWHEEL_ARCH
         auditwheel repair -w ${WHEEL_DIR} ${WHEEL_DIR}/*.whl
 
+        # Filename of the fixed wheel
+        PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"
+        PYTHON_TAG="${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}"
+        WHEEL_FILENAME=${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_TAG}-${AUDITWHEEL_PLAT}.whl
+
+        # Fix rpaths in wheel: unpack, fix, pack
+        python -m wheel unpack ${WHEEL_FILENAME} -d ${WHEEL_DIR}
+
+        # Enable link with MKL pypi package
+        # add rpath entry to .../lib/
+        # from .../lib/pythonX.Y/site-packages/petsc4py/lib/arch-X/
+        patchelf --add-rpath \$ORIGIN/../../../../.. ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py/lib/${PETSC_ARCH}/PETSc*.so
+        # from .../lib/pythonX.Y/site-packages/petsc4py.libs/
+        patchelf --add-rpath \$ORIGIN/../../.. ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py.libs/libpetsc*
+        patchelf --add-rpath \$ORIGIN/../../.. ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py.libs/libHYPRE*
+
+        # it seems that libmpifort does not get $ORIGIN in rpath although it
+        # requires pciaccess, so fix that
+        patchelf --set-rpath \$ORIGIN ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py.libs/libmpi*
+
+        # pack the modified wheel
+        python -m wheel pack ${WHEEL_DIR}/${PACKAGE_TAG} -d ${WHEEL_DIR}
+
         echo "WHEEL_DIR=${WHEEL_DIR}" >> $GITHUB_ENV
+        echo "WHEEL_FILENAME=${WHEEL_FILENAME}" << $GITHUB_ENV
 
     - name: Install petsc4py
-      run: |
-
-        PYTHON_TAG="${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}"
-        PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"
-
-        # Name of the repaired wheel
-        python -m pip install ${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_TAG}-${AUDITWHEEL_PLAT}.whl
+      run: python -m pip install ${WHEEL_FILENAME}
 
   # test:
   #   needs: build
@@ -217,6 +236,9 @@ jobs:
 
     - name: Running tests for petsc4py
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary
+
+    # - name: Running 2nd test for petsc4py
+    #   run: pytest tests
 
   # publish:
   #   needs: build

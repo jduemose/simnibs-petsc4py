@@ -56,7 +56,6 @@ jobs:
     - name: Prepare
       run: |
 
-        echo "Creating ${{ env.LIB_DIR }}"
         mkdir ${{ env.LIB_DIR }}
 
         # ugly but for testing
@@ -72,6 +71,17 @@ jobs:
 
         # Add python to the path
         echo "/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin" >> $GITHUB_PATH
+
+    - name: Install Python Dependencies
+      run: |
+
+        # Install build dependencies manually and use --no-build-isolation
+        # We do this to avoid building against numpy 2 as the numpy version is
+        # not specified in petsc4py's requires section
+        pip install cython 'numpy<2' setuptool
+        pip install pytest
+        # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
 
     - name: Install oneAPI MKL
       run: |
@@ -201,8 +211,8 @@ jobs:
 
         # Filename of the fixed wheel
         PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"
-        PYTHON_TAG="${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}"
-        WHEEL_FILENAME=${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_TAG}-${AUDITWHEEL_PLAT}.whl
+        PYTHON_ABI_TAG="${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}"
+        WHEEL_FILENAME=${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_ABI_TAG}-${AUDITWHEEL_PLAT}.whl
 
         # Fix rpaths in wheel: unpack, fix, pack
         python -m wheel unpack ${WHEEL_FILENAME} -d ${WHEEL_DIR}
@@ -231,15 +241,11 @@ jobs:
   # test:
   #   needs: build
 
-  #   steps:
-    # - name: Install test dependencies
-    #   run: pip install pytest
-
-    - name: Running tests for petsc4py
+    - name: Running tests shipped with petsc4py
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary
 
-    # - name: Running 2nd test for petsc4py
-    #   run: pytest tests
+    - name: Running internal tests
+      run: pytest tests
 
   # publish:
   #   needs: build

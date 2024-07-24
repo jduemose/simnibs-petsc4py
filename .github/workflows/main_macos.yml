@@ -54,6 +54,9 @@ jobs:
     - name: Install Python Dependencies
       run: |
 
+        echo $(python --version)
+        echo $(pip --version)
+
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section

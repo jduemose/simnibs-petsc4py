@@ -78,7 +78,7 @@ jobs:
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
-        pip install cython 'numpy<2' setuptool
+        pip install cython 'numpy<2' setuptools mkl==${{ vars.MKL_VERSION }} mkl-service
         pip install pytest
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
@@ -193,11 +193,6 @@ jobs:
 
         # petsc4py reads configuration etc. from
         # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
-
-        # Install build dependencies manually and use --no-build-isolation
-        # We do this to avoid building against numpy 2 as the numpy version is
-        # not specified in petsc4py's requires section
-        python -m pip install cython 'numpy<2' setuptools mkl==${{ vars.MKL_VERSION }} mkl-service
 
         python -m pip wheel -v --no-deps --no-build-isolation -w ${WHEEL_DIR} ${PETSC4PY_DIR}
 

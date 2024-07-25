@@ -67,8 +67,8 @@ jobs:
 
         # brew install gmake
 
-    - name: Prepare
-      run: mkdir ${{ env.LIB_DIR }}
+    # - name: Prepare
+    #   run: mkdir ${{ env.LIB_DIR }}
 
     - name: Build PETSc
       run: |

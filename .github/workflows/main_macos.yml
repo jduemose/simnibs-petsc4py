@@ -34,7 +34,7 @@ jobs:
       PETSC_FLAGS: -O2 # C, CXX, F
 
       # store libraries in here
-      LIB_DIR: /custom_libs
+      LIB_DIR: ${{ github.workspace }}
 
       PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
 

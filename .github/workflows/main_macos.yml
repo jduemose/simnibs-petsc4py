@@ -54,21 +54,18 @@ jobs:
     - name: Install Python Dependencies
       run: |
 
-        echo $(python --version)
-        echo $(pip --version)
-
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
-        pip install cython 'numpy<2' setuptools
+        pip install cython 'numpy<2' setuptools wheel
         pip install delocate
         pip install pytest
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-        # brew install gmake
 
-    # - name: Prepare
-    #   run: mkdir ${{ env.LIB_DIR }}
+    - name: Prepare
+      run: brew install gmake
+    # run: mkdir ${{ env.LIB_DIR }}
 
     - name: Build PETSc
       run: |
@@ -92,6 +89,7 @@ jobs:
         --FOPTFLAGS=${PETSC_FLAGS} \
         --with-debugging=0 \
         --with-fortran-bindings=0 \
+        --with-make-exec=gmake \
         --with-mpi=1 \
         --download-mpich \
         --with-hypre=1 \
@@ -101,7 +99,6 @@ jobs:
         --with-shared-library=1
 
         # from homebrew...
-        # --with-make-exec=gmake \
         # --with-x=0 \
 
         make all

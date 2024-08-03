@@ -64,6 +64,7 @@ jobs:
 
 
     - name: Prepare
+      # make is installed as gmake
       run: brew install make
     # run: mkdir ${{ env.LIB_DIR }}
 
@@ -115,6 +116,7 @@ jobs:
 
         echo "Using PETSC_DIR   ${PETSC_DIR}"
         echo "Using PETSC_ARCH  ${PETSC_ARCH}"
+        which python
 
         WHEEL_DIR=${PETSC4PY_DIR}/wheelhouse
 
@@ -126,8 +128,16 @@ jobs:
         python -m pip wheel -v --no-deps --no-build-isolation -w ${WHEEL_DIR} ${PETSC4PY_DIR}
 
         # overwrites old wheel
-        # delocate-listdeps ${WHEEL_DIR}/*.whl --all
-        delocate-wheel --sanitize-rpaths -w ${WHEEL_DIR} ${WHEEL_DIR}/*.whl
+        echo "What wheels exist?"
+        ls ${WHEEL_DIR}/*.whl
+
+        echo "List all dependencies"
+        delocate-listdeps ${WHEEL_DIR}/*.whl --all
+
+        echo "List some dependencies"
+        delocate-listdeps ${WHEEL_DIR}/*.whl
+
+        delocate-wheel --require-archs=arm64 -w ${WHEEL_DIR} ${WHEEL_DIR}/*.whl
 
         # Filename of the fixed wheel
         PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"

@@ -20,7 +20,7 @@ on:
 jobs:
   build:
     name: Build and Upload Artifact
-    runs-on: macos-latest
+    runs-on: macos-14
     strategy:
       fail-fast: true
       matrix:
@@ -57,9 +57,8 @@ jobs:
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
-        pip install cython 'numpy<2' setuptools wheel
-        pip install delocate
-        pip install pytest
+        # pip install cython 'numpy<2' setuptools wheel
+        # pip install pytest
         pip install cibuildwheel
 
         # cpython version string representation, e.g., 3.11 -> cp311
@@ -129,7 +128,13 @@ jobs:
         # petsc4py reads configuration etc. from
         # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
 
+        echo which python before?
+        which python
+
         python -m cibuildwheel --output-dir ${WHEEL_DIR} ${PETSC4PY_DIR}
+
+        echo which python after?
+        which python
 
         # petsc4py-3.21.3-cp311-cp311-macosx-14_0_arm64.whl
         WHEEL_FILENAME=${WHEEL_DIR}/*.whl
@@ -139,8 +144,9 @@ jobs:
 
       env:
         CIBW_BUILD: ${{ env.PYTHON_VERSION_STR }}-*
-        # pass additional build flags to pip
-        CIBW_BUILD_FRONTEND: "pip; args: --no-deps --no-build-isolation"
+        CIBW_BEFORE_BUILD: "pip install cython 'numpy<2' setuptools"
+        # pass additional build flags to pip. --no-deps supplied by cibuildwheel
+        CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
         CIBW_ENVIRONMENT: PETSC_DIR=${{ env.PETSC_DIR }} PETSC_ARCH=${{ env.PETSC_ARCH }}
 
     # - name: Build wheel for petsc4py
@@ -193,11 +199,11 @@ jobs:
     # - name: Install test dependencies
     #   run: pip install pytest
 
-    - name: Running tests for petsc4py
+    - name: Running tests shipped with petsc4py
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary
 
-    # - name: Running 2nd test for petsc4py
-    #   run: pytest tests
+    - name: Running internal tests
+      run: pytest tests
 
   # publish:
   #   needs: test

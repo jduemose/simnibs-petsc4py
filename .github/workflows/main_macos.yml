@@ -171,7 +171,7 @@ jobs:
         # pass additional build flags to pip. --no-deps supplied by cibuildwheel
         CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
         # CIBW_ENVIRONMENT: PETSC_DIR=${{ env.PETSC_DIR }} PETSC_ARCH=${{ env.PETSC_ARCH }}
-        MACOSX_DEPLOYMENT_TARGET: ${{ env.MAJOR_MAC_VERSION }}
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
 
     # - name: Build wheel for petsc4py
     #   run: |

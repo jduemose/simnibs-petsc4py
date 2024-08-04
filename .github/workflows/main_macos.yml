@@ -223,10 +223,13 @@ jobs:
     # - name: Install test dependencies
     #   run: pip install pytest
 
-    - name: Running tests shipped with petsc4py
+    - name: Running tests (from petsc4py)
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary
 
-    - name: Running internal tests
+    - name: Install test dependencies
+      run: pip install pytest scipy
+
+    - name: Running tests (internal)
       run: pytest tests
 
   # publish:

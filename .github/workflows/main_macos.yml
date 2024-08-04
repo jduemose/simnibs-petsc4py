@@ -85,8 +85,8 @@ jobs:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
-    - if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
-      name: Build PETSc
+    - name: Build PETSc
+      if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
         # PETSC

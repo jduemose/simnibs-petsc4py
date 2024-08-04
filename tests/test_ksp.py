@@ -9,7 +9,8 @@ from petsc4py import PETSc
 """Based on example from https://tbetcke.github.io/hpc_lecture_notes/petsc_for_sparse_systems.html"""
 
 def build_A(n=1000):
-    """Create empty matrix and fill manually."""
+    """Create empty matrix and fill."""
+
     nnz = 3 * np.ones(n, dtype=np.int32)
     nnz[0] = nnz[-1] = 2
 
@@ -31,25 +32,49 @@ def build_A(n=1000):
 
     A.assemble()
 
-
     return A
 
-def build_A_from_csr_matrix(n):
-    """Create empty matrix and fill from scipy sparse csr matrix."""
+def build_A_from_csr_array(n=1000):
+    """Create empty matrix and fill from scipy sparse csr array."""
 
-    ss_mat = scipy.sparse.csr_matrix()
+    # First set the first row
+    row_ind = [0, 0, n-1, n-1]
+    col_ind = [0, 1, n-2, n-1]
+    data = [2, -1, -1, 2]
+
+    # And now everything else
+    for index in range(1, n - 1):
+        row_ind.append(index)
+        col_ind.append(index-1)
+        data.append(-1)
+
+        row_ind.append(index)
+        col_ind.append(index)
+        data.append(2)
+
+        row_ind.append(index)
+        col_ind.append(index+1)
+        data.append(-1)
+
+    data = np.array(data, dtype=np.int32)
+    row_ind = np.array(row_ind, dtype=np.int32)
+    col_ind = np.array(col_ind, dtype=np.int32)
+
+    ss_arr = scipy.sparse.csr_array((data, (row_ind, col_ind)))
 
     A = PETSc.Mat()
-    A.createAIJ(size=ss_mat.shape, csr=(ss_mat.indptr, ss_mat.indices, ss_mat.data))
+    A.createAIJ(size=ss_arr.shape, csr=(ss_arr.indptr, ss_arr.indices, ss_arr.data))
     A.assemble()
 
     return A
+
 class TestMat:
 
     @pytest.mark.parametrize("n", [100, 1000])
     def test_mat_build_methods(self, n):
         A0 = build_A(n)
-        A1 = build_A_from_csr_matrix(n)
+        A1 = build_A_from_csr_array(n)
+        assert A0.equal(A1)
         # np.testing.assert_allclose()
 
 

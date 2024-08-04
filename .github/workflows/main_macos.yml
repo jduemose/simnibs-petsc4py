@@ -80,13 +80,14 @@ jobs:
         PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
+
     - uses: actions/cache/restore@v4
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
     - name: Build PETSc
-      if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
+      if: steps.cache-petsc.outputs.cache-hit != 'true'
       run: |
 
         # PETSC
@@ -128,8 +129,9 @@ jobs:
 
         # add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
     - uses: actions/cache/save@v4
-      id: cache-petsc-save
+      if: steps.cache-petsc.outputs.cache-hit != 'true'
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc

@@ -73,7 +73,20 @@ jobs:
       run: brew install make
     # run: mkdir ${{ env.LIB_DIR }}
 
-    - name: Build PETSc
+    - name: Retrieve PETSc from cache
+      id: cache-petsc
+      run: |
+        PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
+        PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
+        echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
+        echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ env.PETSC_DIR }}
+        key: ${{ runner.os }}-petsc
+
+    - if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
+      name: Build PETSc
       run: |
 
         # PETSC
@@ -115,6 +128,12 @@ jobs:
 
         # add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+    - uses: actions/cache/save@v4
+      id: cache-petsc-save
+      with:
+        path: ${{ env.PETSC_DIR }}
+        key: ${{ runner.os }}-petsc
+
     - name: Build wheel for petsc4py
       run: |
 
@@ -127,6 +146,10 @@ jobs:
 
         # petsc4py reads configuration etc. from
         # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
+
+        MAJOR_MAC_VERSION=$(sw_vers -productVersion | cut -d '.' -f 1,2)
+        echo "major mac version ${MAJOR_MAC_VERSION}"
+        echo "MAJOR_MAC_VERSION=${MAJOR_MAC_VERSION}" >> $GITHUB_ENV
 
         echo which python before?
         which python
@@ -147,7 +170,8 @@ jobs:
         CIBW_BEFORE_BUILD: "pip install cython 'numpy<2' setuptools"
         # pass additional build flags to pip. --no-deps supplied by cibuildwheel
         CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
-        CIBW_ENVIRONMENT: PETSC_DIR=${{ env.PETSC_DIR }} PETSC_ARCH=${{ env.PETSC_ARCH }}
+        # CIBW_ENVIRONMENT: PETSC_DIR=${{ env.PETSC_DIR }} PETSC_ARCH=${{ env.PETSC_ARCH }}
+        MACOSX_DEPLOYMENT_TARGET: ${{ env.MAJOR_MAC_VERSION }}
 
     # - name: Build wheel for petsc4py
     #   run: |

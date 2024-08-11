@@ -1,0 +1,201 @@
+name: Windows - Build, Test, and Upload
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - v*
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build and Upload Artifact
+    runs-on: windows-2022
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11"]
+
+    env:
+      # package versions are set in github actions variables:
+      #   settings - secrets and variables - actions - variables
+      PETSC_ARCH: arch-win-c-opt
+      PETSC_FLAGS: -O2 # C, CXX, F
+
+      # store libraries in here
+      LIB_DIR: ${{ github.workspace }}
+
+      PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
+
+
+    steps:
+    - name: set git stuff
+      run: git config --global core.autocrlf input
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # https://github.com/cygwin/cygwin-install-action
+    # cygwin stuff is *appended* to path so `bash` should pick up cygwin's bash and
+    # not wsl, git, etc.
+    - name: Install Cygwin
+      uses: cygwin/cygwin-install-action@master
+      with:
+        # platform: ${{ matrix.platform }}
+        packages: >-
+          python3
+          make
+          gcc-core
+          gcc-g++
+          gcc-fortran
+          liblapack-devel
+          openmpi
+          libopenmpi-devel
+          libhwloc-devel
+          libevent-devel
+          zlib-devel
+        # add-to-path: false
+
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python Dependencies
+      run: |
+
+        # Install build dependencies manually and use --no-build-isolation
+        # We do this to avoid building against numpy 2 as the numpy version is
+        # not specified in petsc4py's requires section
+        python -m pip install cython 'numpy<2' setuptools mkl==${{ vars.MKL_VERSION }} mkl-service
+        python -m pip install pytest
+        # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    # mpiexec needs to be installed first/seperately!
+    - name: Install MSMPI
+      run: vcpkg install msmpi
+      # shell: pwsh
+
+    - name: Install HYPRE
+      run: |
+
+        # 1. Configure the HYPRE
+        # I chose `c++20` as this seemed to be what PETSC compiled with.
+
+        cmake \
+          -G "Visual Studio 17 2022" \
+          -A x64 \
+          -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON \
+          -DHYPRE_WITH_CXXSTANDARD=c++20 \
+          -DHYPRE_ENABLE_SHARED=ON \
+          -DHYPRE_WITH_MPI=ON \
+          -S . \
+          -B cmbuild
+
+        cmake --build cmbuild --config Release
+        cmake --install cmbuild
+
+        # shell: pwsh
+
+
+        # - name: Install Intel MKL
+        #   run: vcpkg install intel-mkl=2023
+        #   shell: pwsh
+
+        # - name: Install Intel MKL
+        #   run: |
+
+        #     Invoke-WebRequest -Uri https://registrationcenter-download.intel.com/akdlm/IRC_NAS/7816a8cf-2378-4d49-bfa6-6013a3d7be6a/w_onemkl_p_2024.2.0.662_offline.exe -OutFile onemkl.exe
+
+        #     $env:ONEAPI_DIR="C:\Users\jespe\downloads\oneapi_install"
+
+        #     Start-Process onemkl.exe "-s -a --silent --eula accept --install-dir $env:ONEAPI_DIR" -NoNewWindow -Wait
+        #     Start-Process w_fortran-compiler_p_2024.2.0.424.exe "-s -a --silent --eula accept --install-dir $env:ONEAPI_DIR" -NoNewWindow -Wait
+
+        #   shell: pwsh
+
+    - name: Install PETSc
+      shell: cmd
+      run: |
+
+        call "%ProgramFiles(x86)%\Intel\oneAPI\setvars"
+
+        set PETSC_LIBDIR=C:\Users\jdue\Documents\petscbuild
+        set HYPRE_INSTALL_DIR=%PETSC_LIBDIR%\hypre-2.31.0\src\hypre
+
+        set MSMPI_INC=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include
+        set MSMPI_LIB32=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86
+        set MSMPI_LIB64=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64
+
+        set PETSC_NAME=petsc-3.21.4
+        set PETSC_ARCH=arch-mswin-c-opt-mkl
+
+        # path to cygwin bash
+        # path to cygwin bash script
+        C:\Users\jdue\cygwin\bin\bash.exe --login -o igncr -eo pipefail C:\Users\jdue\Documents\repositories\simnibs-petsc4py\cygwin_build_petsc.sh %PETSC_NAME% %PETSC_ARCH%
+
+    - name: Replace Cygwin paths in petscvariables
+      shell: bash.exe --login -o igncr -eo pipefail cygwin_path_to_windows_path.sh
+      run: |
+
+        # script for replacing cygwin system paths (/home and /cygdrive/c) with the
+        # corresponding Windows path (i.e., C:/...)
+
+        # ARGS
+        #   1 : name of file to do replacements in
+
+        PETSC_NAME=$1
+        PETSC_ARCH=$2
+
+        PETSC_DIR=$PWD/$PETSC_NAME
+
+        FILENAME=$PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/petscvariables
+
+        PLATFORM=$(uname -o)
+        if [ $PLATFORM != "Cygwin" ]; then
+            echo Platform is not cygwin but ${PLATFORM}
+            exit 1
+        fi
+
+        # sed pattern to escape slashes, i.e., / to \/
+        SLASH_ESC='s/[\/]/\\\//g'
+
+        HOME_ESC=$(echo $HOME | sed -e $SLASH_ESC)
+
+        HOME_WIN=$(cygpath -m $(realpath $HOME))
+        HOME_WIN_ESC=$(echo $HOME_WIN | sed -e $SLASH_ESC)
+
+        CYGWIN_ROOT="/cygdrive/c/"
+        CYGWIN_ROOT_ESC=$(echo $CYGWIN_ROOT | sed -e $SLASH_ESC)
+
+        CYGWIN_ROOT_WIN=$(cygpath -m $CYGWIN_ROOT)
+        CYGWIN_ROOT_WIN_ESC=$(echo $CYGWIN_ROOT_WIN | sed -e $SLASH_ESC)
+
+        # convert /cygdrive/c to C:
+        sed -i "s/${CYGWIN_ROOT_ESC}/${CYGWIN_ROOT_WIN_ESC}/g" $FILENAME
+
+        # convert "/home/user" to "/path/to/cygwin/home/user"
+        # ignore the line defining "wPETSC_DIR" as this is window already!
+        sed -i "/^wPETSC_DIR/! s/${HOME_ESC}/${HOME_WIN_ESC}/g" $FILENAME
+
+      shell: cmd
+      run: |
+
+        PETSC_DIR=C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4
+        PETSC_ARCH=
+        cd C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\src\binding\petsc4py
+
+        C:\Users\jdue\miniforge3\envs\petsc4py\python -m pip wheel -v --no-deps --no-build-isolation -w wheelhouse .
+
+        --config-settings ="-lmsmpi"
+
+        --global-option=build_ext --global-option="-LC:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64"
+
+        #
+
+        C:\Users\jdue\miniforge3\envs\petsc4py\python -m pip download --no-deps petsc4py==3.21.4 -d C:\Users\jdue\Documents\petscbuild
+
+
+        python -m pip wheel --no-deps  petsc4py==3.21.4 -w C:\Users\jdue\Documents\petscbuild

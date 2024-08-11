@@ -1,0 +1,528 @@
+# Native Windows Compilation of PETSC with MS-MPI and HYPRE
+
+First, ensure that the necessary Visual Studio components are installed. In the installer, choose the "Desktop development with c++" workload.
+
+Here, I used Visual Studio Community 2022 (17.9.6). This will provide several command prompts/powershells which initializes variables for different purposes. I used the "x64 Native Tools Command Prompt VS 2022" as the "default" shell (Developer Powershell for VS 2022) initialized a 32-bit environment.
+
+## Build HYPRE
+
+
+msmpisetup.exe -unattend
+
+msmpisetup.exe -unattend -installroot C:\Users\jdue\Documents\petscbuild\msmpi
+msmpisdk.msi /quiet /passive /qn
+
+Download the HYPRE source code from https://github.com/hypre-space/hypre and extract the tarball. (here, I used HYPRE v2.31.0). Open "x64 Native Tools Command Prompt VS 2022" and navigate to the `src` subdirectory. We are building in `src/cmbuild`.
+
+pip download petsc4py-3.21.4
+
+# get hypre
+curl -O -L https://github.com/hypre-space/hypre/archive/refs/tags/v2.31.0.tar.gz
+tar -x -z -f v2.31.0.tar.gz
+
+call "%ProgramFiles(x86)%\Intel\oneAPI\setvars"
+
+set PETSC_LIBDIR=C:\Users\jdue\Documents\petscbuild
+set HYPRE_INSTALL_DIR=%PETSC_LIBDIR%\hypre-2.31.0\src\hypre
+
+set MSMPI_INC=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include
+set MSMPI_LIB32=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86
+set MSMPI_LIB64=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64
+
+set PETSC_NAME=petsc-3.21.4
+set PETSC_ARCH=arch-mswin-c-opt-mkl
+
+
+C:\Users\jdue\cygwin\bin\bash.exe --login -o igncr -eo pipefail C:\Users\jdue\Documents\repositories\simnibs-petsc4py\cygwin_build_petsc.sh %PETSC_NAME% %PETSC_ARCH%
+
+
+C:\Users\jdue\cygwin\bin\bash.exe --login -
+
+C:\Users\jdue\cygwin\bin\bash.exe --login -o igncr -eo pipefail C:\Users\jdue\Documents\repositories\simnibs-petsc4py\cygwin_build_petsc.sh %PETSC_NAME% %PETSC_ARCH%
+
+petsc-3.21.4/arch-mswin-c-opt-mkl/lib/petsc/conf/petscvariables
+
+
+cd hypre-2.31.0/src
+
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+
+# update and set baseline in manifest file..
+
+vcpkg x-update-baseline --add-initial-baseline
+vcpkg install
+
+
+
+
+
+
+1. Configure the HYPRE
+
+  cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON -DHYPRE_WITH_CXXSTANDARD=c++20 -DHYPRE_ENABLE_SHARED=ON -DHYPRE_WITH_MPI=ON -DHYPRE_WITH_MPI_INCLUDE="C:\Program Files (x86)\Microsoft SDKs\MPI\Include" -DHYPRE_WITH_MPI_LIB_DIRS="C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64" -S . -B cmbuild
+
+  cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON -DHYPRE_WITH_CXXSTANDARD=c++20 -DHYPRE_ENABLE_SHARED=ON -DHYPRE_WITH_MPI=ON -S . -B cmbuild
+
+I chose `c++20` as this seemed to be what PETSC compiled with.
+
+  cmake --build cmbuild --config Release
+  cmake --install cmbuild
+
+The default installation path ("prefix") is in `src/hypre`.
+
+## PETSC
+
+Before we begin we need to install MS-MPI, Microsofts implementation of the MPI protocol.
+
+# Install MS-MPI
+Go to https://learn.microsoft.com/en-us/message-passing-interface/microsoft-mpi#ms-mpi-downloads and to then the "Downloads" page. Click "Download" and choose both `msmpisdk.msi` (the SDK containing libraries and headers) and `msmpisetup.exe` (mpiexec).
+
+We will need to locate these later on, so make sure you know where they are installed (and substitute the paths below). The default locations should be something like
+
+  msmpidk   C:\Program Files (x86)\Microsoft SDKs\MPI
+  mpiexec   C:\Program Files\Microsoft MPI
+
+## Build PETSC
+
+We wish to compile PETSC using Microsofts visual studio compilers. To set everything up, we go through the first steps of https://petsc.org/release/install/windows/#native-microsoft-intel-windows-compilers. Follow step 1 (cygwin installation and setup) and 2 (disable cygwins linker). I used plain `cl` and not `ifort` so 2 is perhaps not necessary but I did it anyway. Then, for step 3, open "x64 Native Tools Command Prompt VS 2022" and open cygwin from within this
+
+  C:\cygwin64\bin\mintty.exe -
+
+Check that the VS compiler is available, e.g., by just doing
+
+  cl
+
+which should also show the architecture.
+
+Next, download PETSC from https://petsc.org/release/install/download/. I will assume we are working with the tarball (here I used version 3.21.1) but this could also be done by cloning the git repository. Extract the tarball and go to the root directory. We will build a release (no debugging) version with `O2` optimization (for speed) while linking with MS-MPI and HYPRE.
+
+Before we begin, set some useful paths (be sure to update these!)
+
+  HYPRE_PREFIX=$(cygpath -u 'C:\Users\jespe\Downloads\hypre-2.31.0\src\hypre')
+  MPI_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files (x86)\Microsoft SDKs\MPI'))
+  MPIEXEC_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files\Microsoft MPI'))
+
+### PETSC Release Build
+
+1. Configure
+
+  ./configure \
+  --with-cc='win32fe_cl' \
+  --with-cxx='win32fe_cl' \
+  --with-fc=0 \
+  --with-shared-libraries=1 \
+  --with-debugging=0 \
+  --COPTFLAGS='-O2' \
+  --CXXOPTFLAGS='-O2' \
+  --with-mpi=1 \
+  --with-mpi-include=\[$MPI_PREFIX/Include,$MPI_PREFIX/Include/x64\] \
+  --with-mpi-lib=\[$MPI_PREFIX/Lib/x64/msmpi.lib,$MPI_PREFIX/Lib/x64/msmpifec.lib\] \
+  --with-mpiexec=$MPIEXEC_PREFIX/Bin/mpiexec \
+  --with-hypre-include=$HYPRE_PREFIX/include \
+  --with-hypre-lib=$HYPRE_PREFIX/lib/HYPRE.lib \
+  --download-f2cblaslapack
+
+2. Build
+
+  make PETSC_DIR=/home/jespe/downloads/petsc-3.21.1 PETSC_ARCH=arch-mswin-c-opt all
+
+3. Check. We need to add the path to the HYPRE dll in order for the checks to succeed (ldd PETSC_ARC/lib/libpetsc.dll will show that HYPRE.dll is not found).
+
+  export PATH=/cygdrive/c/Users/jespe/Downloads/hypre-2.31.0/src/hypre/bin/:$PATH
+  make PETSC_DIR=/home/jespe/downloads/petsc-3.21.1 PETSC_ARCH=arch-mswin-c-opt check
+
+The checks for 1 MPI, 2 MPIs, and HYPRE should succeed.
+
+### PETSC Step-by-step Debug Build
+
+Alternatively, or if something goes wrong, we can build PETSC (here debug build) step by step to see where it goes wrong. First, we build PETSC without MPI or HYPRE.
+
+  ./configure \
+  --with-cc='win32fe_cl' \
+  --with-cxx='win32fe_cl' \
+  --with-fc=0 \
+  --with-mpi=0 \
+  --with-shared-libraries=1 \
+  --download-f2cblaslapack
+
+Execute the suggested build and check. If this succeeds, we can try to add MPI
+
+  MPI_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files (x86)\Microsoft SDKs\MPI'))
+  MPIEXEC_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files\Microsoft MPI'))
+
+Set the `PETSC_DIR` and `PETSC_ARCH`, e.g.,
+
+  PETSC_DIR=/home/jespe/downloads/petsc-3.21.1
+  PETSC_ARCH=arch-mswin-c-debug
+
+and use the reconfigure script
+
+  $PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/reconfigure-$PETSC_ARCH.py \
+  --with-mpi=1 \
+  --with-mpi-include=\[$MPI_PREFIX/Include,$MPI_PREFIX/Include/x64\] \
+  --with-mpi-lib=\[$MPI_PREFIX/Lib/x64/msmpi.lib,$MPI_PREFIX/Lib/x64/msmpifec.lib\] \
+  --with-mpiexec=$MPIEXEC_PREFIX/Bin/mpiexec
+
+Build and run checks. If this succeeds, we can add HYPRE
+
+  HYPRE_PREFIX=$(cygpath -u 'C:\Users\jespe\Downloads\hypre-2.31.0\src\hypre')
+
+  $PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/reconfigure-$PETSC_ARCH.py \
+  --with-hypre-include=$HYPRE_PREFIX/include \
+  --with-hypre-lib=$HYPRE_PREFIX/lib/HYPRE.lib
+
+### Final Remarks
+
+One important thing to remember when compiling against these libraries on Windows is that we need to include this compiler flag `-Zc:preprocessor`. Otherwise you will get tons of syntax errors.
+
+
+
+-------------------
+
+# COMPILATION WITH INTEL MKL
+
+$env:PETSC_DIR = "C:\cygwin64\home\jespe\downloads\petsc-3.21.1"
+$env:PETSC_ARCH = "arch-mswin-c-opt"
+$env:CL = "-GF -MD -wd4996 -Zc:preprocessor  -O2"
+
+$env:CXXFLAGS = "-GF -MD -wd4996 -Zc:preprocessor  -O2"
+
+SET CL=-GF -MD -wd4996 -Zc:preprocessor  -O2
+
+
+
+Invoke-WebRequest -Uri https://registrationcenter-download.intel.com/akdlm/IRC_NAS/7816a8cf-2378-4d49-bfa6-6013a3d7be6a/w_onemkl_p_2024.2.0.662_offline.exe -OutFile onemkl.exe
+
+$env:ONEAPI_DIR="C:\Users\jespe\downloads\oneapi_install"
+
+Start-Process onemkl.exe "-s -a --silent --eula accept --install-dir $env:ONEAPI_DIR" -NoNewWindow -Wait
+Start-Process w_fortran-compiler_p_2024.2.0.424.exe "-s -a --silent --eula accept --install-dir $env:ONEAPI_DIR" -NoNewWindow -Wait
+
+Invoke-WebRequest -Uri https://registrationcenter-download.intel.com/akdlm/IRC_NAS/7feb5647-59dd-420d-8753-345d31e177dc/w_fortran-compiler_p_2024.2.0.424_offline.exe -OutFile onefortran.exe
+
+MPICH_FLAGS="-fPIC"
+FLAGS_OPENBLAS="USE_THREAD=0 USE_OPENMP=0" # could consider USE_THREAD=1 ?
+PETSC_FLAGS="-O2 -fp-model=precise" # C/CXX/F flags
+
+HYPRE_PREFIX=$(cygpath -u 'C:\Users\jespe\Downloads\hypre-2.31.0\src\hypre')
+MPI_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files (x86)\Microsoft SDKs\MPI'))
+MPIEXEC_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files\Microsoft MPI'))
+
+PETSC_ARCH=arch-mswin-c-opt-mkl
+
+>>>> intel oneapi command prompt
+>>>> mintty
+
+# convert to cygpath
+MKLROOT=$(cygpath -u $MKLROOT)
+
+fp:precise
+
+# currently, ifx only works with --with-shared-library=0. Therefore, we use ifort although deprecated
+
+PETSC_ARCH=arch-mswin-c-opt-mkl-seq
+
+./configure \
+--PETSC_ARCH=$PETSC_ARCH \
+--with-cc='win32fe cl' \
+--with-cxx='win32fe cl' \
+--with-fc='win32fe ifort' \
+--with-fortran-bindings=0 \
+--with-debugging=0 \
+--COPTFLAGS='-O2' \
+--CXXOPTFLAGS='-O2' \
+--FOPTFLAGS='-O2' \
+--with-mpi-include=\[$MPI_PREFIX/Include,$MPI_PREFIX/Include/x64\] \
+--with-mpi-lib=\[$MPI_PREFIX/Lib/x64/msmpi.lib,$MPI_PREFIX/Lib/x64/msmpifec.lib\] \
+--with-mpiexec=$MPIEXEC_PREFIX/Bin/mpiexec \
+--with-hypre-include=$HYPRE_PREFIX/include \
+--with-hypre-lib=$HYPRE_PREFIX/lib/HYPRE.lib \
+--with-blaslapack-lib=\[$MKLROOT/lib/mkl_core_dll.lib,$MKLROOT/lib/mkl_intel_lp64_dll.lib,$MKLROOT/lib/mkl_sequential_dll.lib\] \
+--with-mkl_pardiso-include=$MKLROOT/include \
+--with-mkl_pardiso-lib=\[$MKLROOT/lib/mkl_core_dll.lib,$MKLROOT/lib/mkl_intel_lp64_dll.lib,$MKLROOT/lib/mkl_sequential_dll.lib\] \
+--with-shared-libraries=1
+
+HYPRE_PREFIX=$(cygpath -u 'C:\Users\jespe\Downloads\hypre-2.31.0\src\hypre-no-mpi')
+
+PETSC_ARCH=arch-mswin-c-opt-mkl-nompi
+
+./configure \
+--PETSC_ARCH=$PETSC_ARCH \
+--with-cc='win32fe cl' \
+--with-cxx='win32fe cl' \
+--with-fc='win32fe ifort' \
+--with-fortran-bindings=0 \
+--with-debugging=0 \
+--COPTFLAGS='-O2' \
+--CXXOPTFLAGS='-O2' \
+--FOPTFLAGS='-O2' \
+--with-mpi=0 \
+--with-hypre-include=$HYPRE_PREFIX/include \
+--with-hypre-lib=$HYPRE_PREFIX/lib/HYPRE.lib \
+--with-blaslapack-lib=\[$MKLROOT/lib/mkl_core_dll.lib,$MKLROOT/lib/mkl_intel_lp64_dll.lib,$MKLROOT/lib/mkl_intel_thread_dll.lib\] \
+--with-mkl_pardiso-include=$MKLROOT/include \
+--with-mkl_pardiso-lib=\[$MKLROOT/lib/mkl_core_dll.lib,$MKLROOT/lib/mkl_intel_lp64_dll.lib,$MKLROOT/lib/mkl_intel_thread_dll.lib\] \
+--with-shared-libraries=1
+
+--download-hypre-configure-arguments="--with-mpi=0"
+
+In the COMMAND PROMPT this initializes MKLROOT, PKG_CONFIG_PATH, etc.
+
+$ONEAPI_INSTALL_DIR\setvars.bat
+
+In POWERHSELL, use
+
+cmd.exe "/K" 'setvars.bat && powershell'
+
+
+
+pkgconfig path for MKL: $MKLROOT/lib/pkgconfig
+use library: mkl-dynamic-lp64-iomp.pc
+
+--with-blaslapack-dir=$MKLROOT \
+--with-mkl_pardiso-dir=$MKLROOT
+
+
+
+
+c   flags : -GF -MD -wd4996 -Zc:preprocessor  -O2
+cxx flags : -GF -MD -GR -EHsc -Zc:preprocessor  -Zc:__cplusplus -O2  -std:c++20 -TP
+f   flags : -MD -O2 -fpp
+linker    : -LD  -GF -MD -wd4996 -Zc:preprocessor  -O2
+
+
+
+
+# os.add_dll_directory
+# we need to add the paths to all dlls: libpetsc, msmpi, HYPRE, MKL*
+
+"libraries"=["libpetsc", "msmpi"],
+"library_dirs"=["C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64"],
+
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\HostX86\x64\link.exe" /nologo /INCREMENTAL:NO /LTCG /DLL /MANIFEST:EMBED,ID=2 /MANIFESTUAC:NO /LIBPATH:C:\cygwin64\home\jespe\downloads\petsc-3.21.1/arch-mswin-c-opt/lib /LIBPATH:C:\Users\jespe\miniforge3\envs\petsc4py-test\libs /LIBPATH:C:\Users\jespe\miniforge3\envs\petsc4py-test /LIBPATH:C:\Users\jespe\miniforge3\envs\petsc4py-test\PCbuild\amd64 "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.22621.0\\um\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.22621.0\\um\x64" "/LIBPATH:C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64" libpetsc.lib msmpi.lib /EXPORT:PyInit_PETSc build\temp.win-amd64-cpython-311\Release\arch-mswin-c-opt\src/petsc4py/PETSc.obj /OUT:build\lib.win-amd64-cpython-311\petsc4py\lib\arch-mswin-c-opt\PETSc.cp311-win_amd64.pyd /IMPLIB:build\temp.win-amd64-cpython-311\Release\arch-mswin-c-opt\src/petsc4py\PETSc.cp311-win_amd64.lib
+
+import os
+os.add_dll_directory(
+    r"C:\Users\jespe\miniforge3\envs\petsc4py-test\Lib\site-packages\petsc4py\lib\arch-mswin-c-opt"
+)
+
+in petscvariables, e.g., C:\cygwin64\home\jespe\downloads\petsc-3.21.1\arch-mswin-c-opt-mkl-tbb\lib\petsc\conf\petscvariables
+
+
+
+cd petsc-3.21.4/arch-mswin-c-opt-mkl/lib/petsc/conf/
+
+
+
+sed -i 's/\/cygdrive\/c\//C:\//g' petscvariables
+
+
+
+sed_esc='s/[\/]/\\\//g'
+
+HOME_ESC=$(echo $HOME | sed -e $sed_esc)
+
+HOME_WIN=$(cygpath -m $(realpath $HOME))
+HOME_WIN_ESC=$(echo $HOME_WIN | sed -e $sed_esc)
+
+CYGWIN_ROOT="/cygdrive/c"
+CYGWIN_ROOT_ESC=$(echo $CYGWIN_ROOT | sed -e $sed_esc)
+
+CYGWIN_ROOT_WIN=$(cygpath -m $CYGWIN_ROOT)
+CYGWIN_ROOT_WIN_ESC=$(echo $CYGWIN_ROOT_WIN | sed -e $sed_esc)
+
+# convert /cygdrive/c to C:
+sed 's/${CYGWIN_ROOT_ESC}/${CYGWIN_ROOT_WIN_ESC}/g' petscvariables
+
+# convert "/home/user" to "/path/to/cygwin/home/user"
+# ignore the line defining "wPETSC_DIR" as this is window already!
+sed "/^wPETSC_DIR/! s/${HOME_ESC}/${HOME_ESC_WIN}/g" petscvariables
+
+pip install cython 'numpy<2' setuptools mkl==2024.2.0 mkl-service pytest
+
+
+ksp = PETSc.KSP().create()
+ksp.setOperators(A)
+ksp.setType('cg')
+ksp.setConvergenceHistory()
+ksp.getPC().setType('lu')
+ksp.getPC().setFactorSolverType('mkl_pardiso')
+ksp.solve(b, x)
+
+search and replace
+
+  /cygdrive/c/  -> C:/
+  /home/        -> C:/cygwin64/home/
+
+or whatever path to cygwin install dir
+
+# PASS EXTRA GLOBAL OPTIONS TO PIP BUILD
+
+https://stackoverflow.com/questions/18783390/python-pip-specify-a-library-directory-and-an-include-directory
+
+SET CL=-GF -MD -wd4996 -Zc:preprocessor  -O2
+
+
+"-llibpetsc -lmsmpi -lHYPRE ..."
+"-LC:\\Program Files\ (x86)\Microsoft\ SDKs\\MPI\\Lib\\x64"
+
+pip wheel --no-deps --no-build-isolation .
+
+pip install --global-option="build_ext" --global-option="-Ic:\Program Files (x86)\OpenSSL-Win32\include" --global-option="-Lc:\Program Files (x86)\OpenSSL-Win32\Lib" cryptography-2.4.2.tar.gz
+
+
+pip install --global-option="-LC:\\Program Files\ (x86)\Microsoft\ SDKs\\MPI\\Lib\\x64 -L" --build-option="-llibpetsc -lmsmpi -lHYPRE -lmkl_tbb_thread"
+
+
+import os
+
+
+os.add_dll_directory(r"C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\arch-mswin-c-opt-mkl\lib")
+os.add_dll_directory(r"C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\bin")
+os.add_dll_directory(r"C:\Windows\System32")
+
+os.add_dll_directory(r"C:\Users\jdue\miniforge3\envs\petsc4py\Lib\site-packages\petsc4py\lib\arch-mswin-c-opt-mkl")
+
+os.environ['PATH'] = os.pathsep.join([
+  r"C:\Users\jdue\miniforge3\envs\petsc4py\Lib\site-packages\petsc4py\lib\arch-mswin-c-opt-mkl",
+  r"C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\arch-mswin-c-opt-mkl\lib",
+  r"C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\bin",
+    os.environ['PATH']
+])
+
+"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\HostX86\x64\link.exe" /nologo /INCREMENTAL:NO /LTCG /DLL /MANIFEST:EMBED,ID=2 /MANIFESTUAC:NO /LIBPATH:C:\cygwin64\home\jespe\downloads\petsc-3.21.1/arch-mswin-c-opt/lib /LIBPATH:C:\Users\jespe\miniforge3\envs\petsc4py-test\libs /LIBPATH:C:\Users\jespe\miniforge3\envs\petsc4py-test /LIBPATH:C:\Users\jespe\miniforge3\envs\petsc4py-test\PCbuild\amd64 "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.22621.0\\um\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.22621.0\\um\x64" petsc.lib /EXPORT:PyInit_PETSc build\temp.win-amd64-cpython-311\Release\arch-mswin-c-opt\src/petsc4py/PETSc.obj /OUT:build\lib.win-amd64-cpython-311\petsc4py\lib\arch-mswin-c-opt\PETSc.cp311-win_amd64.pyd /IMPLIB:build\temp.win-amd64-cpython-311\Release\arch-mswin-c-opt\src/petsc4py\PETSc.cp311-win_amd64.lib
+
+"-llibpetsc -lmsmpi -lHYPRE ..."
+"-LC:\\Program Files\ (x86)\Microsoft\ SDKs\\MPI\\Lib\\x64"
+
+"-LC:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64"
+
+"/LIBPATH:C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64"
+
+
+..\..\..\..\Library\bin
+"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\bin\HostX86\x64\link.exe" /nologo /INCREMENTAL:NO /LTCG /DLL /MANIFEST:EMBED,ID=2 /MANIFESTUAC:NO /LIBPATH:C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4/arch-mswin-c-opt-mkl/lib /LIBPATH:C:\Users\jdue\miniforge3\envs\petsc4py\libs /LIBPATH:C:\Users\jdue\miniforge3\envs\petsc4py /LIBPATH:C:\Users\jdue\miniforge3\envs\petsc4py\PCbuild\amd64 "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.22621.0\\um\x64" "/LIBPATH:C:\Program Files (x86)\Intel\oneAPI\tbb\latest\env\..\lib" "/LIBPATH:C:\Program Files (x86)\Intel\oneAPI\mpi\latest\env\\..\lib" "/LIBPATH:C:\Program Files (x86)\Intel\oneAPI\mkl\latest\lib" "/LIBPATH:C:\Program Files (x86)\Intel\oneAPI\compiler\latest\lib\clang\18\lib\windows" "/LIBPATH:C:\Program Files (x86)\Intel\oneAPI\compiler\latest\opt\compiler\lib" "/LIBPATH:C:\Program Files (x86)\Intel\oneAPI\compiler\latest\lib" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.22621.0\\um\x64" "/LIBPATH:C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64" libpetsc.lib msmpi.lib /EXPORT:PyInit_PETSc build\temp.win-amd64-cpython-311\Release\arch-mswin-c-opt-mkl\src/petsc4py/PETSc.obj /OUT:build\lib.win-amd64-cpython-311\petsc4py\lib\arch-mswin-c-opt-mkl\PETSc.cp311-win_amd64.pyd /IMPLIB:build\temp.win-amd64-cpython-311\Release\arch-mswin-c-opt-mkl\src/petsc4py\PETSc.cp311-win_amd64.lib
+
+
+
+
+os.path.abspath(os.path.join(r'C:\Users\jdue\Desktop\localpython\Lib\site-packages\petsc4py\lib', os.path.join(os.pardir, os.pardir, os.pardir, os.pardir), r"Library\bin"))
+
+
+delvewheel show --add-path "C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\arch-mswin-c-opt-mkl\lib;C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\bin" --no-dll mkl_intel_thread.2.dll .\wheelhouse\petsc4py-3.21.4-cp311-cp311-win_amd64.whl
+
+import delvewheel._version
+frp, delvewheel._wheel_repair import _patch_py_template_v2
+
+at_start = False
+delvewheel_version = delvewheel._version.__version__.replace('.', '_')
+depth = 4
+libs_dir = "Library\bin"
+
+patch_str = _patch_by_contents(at_start, libs_dir, depth)
+
+patch_str = _patch_py_template_v2.format('"""""" ' if at_start else '', delvewheel_version, 'os.pardir, ' * depth, libs_dir)
+
+lines = [
+  r"    HYPRE.dll (C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\bin\HYPRE.dll)",
+  r"    libpetsc.dll (C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\arch-mswin-c-opt-mkl\lib\libpetsc.dll)",
+  r"    msvcp140.dll (C:\Users\jdue\miniforge3\envs\petsc4py\msvcp140.dll)",
+  r"    msmpi.dll (C:\WINDOWS\system32\msmpi.dll)"
+]
+for line in lines:
+  dll, path = line.lstrip(" ").rstrip(" ").split(" ")
+  path = path.lstrip("(").rstrip(")")
+  print(dll)
+  print(path)
+
+
+# unpack wheel
+
+python -m wheel unpack -d C:\Users\jdue\Documents\petscbuild\petsc4py-3.21.4\wheelhouse C:\Users\jdue\Documents\petscbuild\petsc4py-3.21.4\wheelhouse\petsc4py-3.21.4-cp311-cp311-win_amd64.whl
+
+# copy dll to lib/arch*/ next to PETSc*.pyd
+
+set OUTDIR=C:\Users\jdue\Documents\petscbuild\petsc4py-3.21.4\wheelhouse\petsc4py-3.21.4\petsc4py\lib\arch-mswin-c-opt-mkl
+copy C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\arch-mswin-c-opt-mkl\lib\libpetsc.dll %OUTDIR%
+copy C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\bin\HYPRE.dll %OUTDIR%
+copy C:\WINDOWS\system32\msmpi.dll %OUTDIR%
+copy C:\WINDOWS\system32\msvcp140.dll %OUTDIR%
+
+APPEND the following to petsc4py/lib/__init__.py to discover MKL DLLs
+
+# start delvewheel patch
+depth = 4
+dll_dir = r"Library\bin"
+
+import os
+libs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, os.pardir, dll_dir))
+if os.path.isdir(libs_dir):
+    os.add_dll_directory(libs_dir)
+# end delvewheel patch
+
+
+
+from petsc4py import PETSc
+import numpy as np
+
+n = 1000
+
+nnz = 3 * np.ones(1000, dtype=np.int32)
+nnz[0] = nnz[-1] = 2
+
+A = PETSc.Mat()
+A.createAIJ([n, n], nnz=nnz)
+
+A.setValue(0, 0, 2)
+A.setValue(0, 1, -1)
+# Now we fill the last row
+A.setValue(999, 998, -1)
+A.setValue(999, 999, 2)
+
+# And now everything else
+for index in range(1, n - 1):
+    A.setValue(index, index - 1, -1)
+    A.setValue(index, index, 2)
+    A.setValue(index, index + 1, -1)
+
+A.assemble()
+
+b = A.createVecLeft()
+b.array[:] = 1
+
+x = A.createVecRight()
+
+# No PC
+ksp = PETSc.KSP().create()
+ksp.setOperators(A)
+ksp.setType('cg')
+ksp.setConvergenceHistory()
+ksp.getPC().setType('none')
+ksp.solve(b, x)
+
+residuals1 = ksp.getConvergenceHistory()
+
+# HYPRE
+ksp = PETSc.KSP().create()
+ksp.setOperators(A)
+ksp.setType('cg')
+ksp.setConvergenceHistory()
+ksp.getPC().setType('hypre')
+ksp.solve(b, x)
+
+residuals2 = ksp.getConvergenceHistory()
+
+# PARDISO
+ksp = PETSc.KSP().create()
+ksp.setOperators(A)
+ksp.setType('cg')
+ksp.setConvergenceHistory()
+ksp.getPC().setType('lu')
+ksp.getPC().setFactorSolverType('mkl_pardiso')
+ksp.solve(b, x)
+
+residuals3 = ksp.getConvergenceHistory()
+
+print(residuals1)
+print(residuals2)
+print(residuals3)

@@ -1,0 +1,39 @@
+# script for replacing cygwin system paths (/home and /cygdrive/c) with the
+# corresponding Windows path (i.e., C:/...)
+
+# ARGS
+#   1 : name of file to do replacements in
+
+PETSC_NAME=$1
+PETSC_ARCH=$2
+
+PETSC_DIR=$PWD/$PETSC_NAME
+
+FILENAME=$PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/petscvariables
+
+PLATFORM=$(uname -o)
+if [ $PLATFORM != "Cygwin" ]; then
+    echo Platform is not cygwin but ${PLATFORM}
+    exit 1
+fi
+
+# sed pattern to escape slashes, i.e., / to \/
+SLASH_ESC='s/[\/]/\\\//g'
+
+HOME_ESC=$(echo $HOME | sed -e $SLASH_ESC)
+
+HOME_WIN=$(cygpath -m $(realpath $HOME))
+HOME_WIN_ESC=$(echo $HOME_WIN | sed -e $SLASH_ESC)
+
+CYGWIN_ROOT="/cygdrive/c/"
+CYGWIN_ROOT_ESC=$(echo $CYGWIN_ROOT | sed -e $SLASH_ESC)
+
+CYGWIN_ROOT_WIN=$(cygpath -m $CYGWIN_ROOT)
+CYGWIN_ROOT_WIN_ESC=$(echo $CYGWIN_ROOT_WIN | sed -e $SLASH_ESC)
+
+# convert /cygdrive/c to C:
+sed -i "s/${CYGWIN_ROOT_ESC}/${CYGWIN_ROOT_WIN_ESC}/g" $FILENAME
+
+# convert "/home/user" to "/path/to/cygwin/home/user"
+# ignore the line defining "wPETSC_DIR" as this is window already!
+sed -i "/^wPETSC_DIR/! s/${HOME_ESC}/${HOME_WIN_ESC}/g" $FILENAME

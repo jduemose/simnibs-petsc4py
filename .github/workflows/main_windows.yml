@@ -67,6 +67,10 @@ jobs:
         echo Installing MSMPI SDK
         msmpisdk.msi /quiet /passive /qn /norestart
 
+        echo "set MSMPI_INC="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include"" >> %GITHUB_ENV%
+        echo "set MSMPI_LIB32="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86"" >> %GITHUB_ENV%
+        echo "set MSMPI_LIB64="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64"" >> %GITHUB_ENV%
+
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components
     # https://github.com/oneapi-src/oneapi-ci/blob/master/.github/workflows/build_all.yml
@@ -81,7 +85,7 @@ jobs:
 
         set SETVARS="%ProgramFiles(x86)%\Intel\oneAPI\setvars.bat"
 
-        call SETVARS
+        call %SETVARS%
 
         echo Environment variables
         set
@@ -92,7 +96,7 @@ jobs:
         echo Check Intel compiler
         ifort
 
-        echo "set SETVARS=%SETVARS%" >> $GITHUB_ENV
+        echo "set SETVARS=%SETVARS%" >> %GITHUB_ENV%
 
     - name: Build and Install HYPRE
       run: |
@@ -120,6 +124,8 @@ jobs:
 
         REM The default installation path ("prefix") is in `src/hypre`.
         REM we now have /hypre-2.31.0/src/hypre
+
+        echo "set HYPRE_INSTALL_DIR=%GITHUB_WORKSPACE%\hypre-2.31.0\src\hypre" >> %GITHUB_ENV%
 
 
     # https://github.com/cygwin/cygwin-install-action

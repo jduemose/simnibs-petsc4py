@@ -98,7 +98,7 @@ class TestKSP:
                 "mkl_pardiso",
                 marks=pytest.mark.skipif(
                     sys.platform == "darwin",
-                    reason="PETSc is not build with Intel MKL on macosx."
+                    reason="PETSc is not built with Intel MKL on macos."
                 ),
             ),
             pytest.param(
@@ -106,7 +106,23 @@ class TestKSP:
                 "superlu",
                 marks=pytest.mark.skipif(
                     sys.platform != "darwin",
-                    reason="PETSc only build with superlu on macosx."
+                    reason="PETSc only built with superlu on macos."
+                ),
+            ),
+            pytest.param(
+                "lu",
+                "mumps",
+                marks=pytest.mark.skipif(
+                    sys.platform != "darwin",
+                    reason="PETSc only built with MUMPS on macos."
+                ),
+            ),
+            pytest.param(
+                "cholesky",
+                "mumps",
+                marks=pytest.mark.skipif(
+                    sys.platform != "darwin",
+                    reason="PETSc only built with MUMPS on macos."
                 ),
             ),
         ]
@@ -121,8 +137,6 @@ class TestKSP:
         x = A.createVecRight()
 
         # Build KSP solver object
-        ksp = PETSc.KSP().create()
-        ksp.setOperators(A)
         ksp = PETSc.KSP().create()
         ksp.setOperators(A)
         ksp.setTolerances(rtol=rtol)

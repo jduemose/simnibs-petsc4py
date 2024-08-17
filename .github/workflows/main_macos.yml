@@ -110,13 +110,13 @@ jobs:
         --with-debugging=0 \
         --with-fortran-bindings=0 \
         --with-make-exec=gmake \
-        --with-mpi=1 \
-        --download-mpich \
-        --with-hypre=1 \
-        --download-hypre \
-        --with-superlu=1 \
-        --download-superlu \
+        --with-mpi=1 --download-mpich \
+        --with-hypre=1 --download-hypre \
+        --with-superlu=1 --download-superlu \
         --with-shared-library=1
+
+        # mumps seems to be statically compiled even with shared-library=1
+        # --download-mumps --download-scalapack --download-metis --download-parmetis \
 
         # from homebrew...
         # --with-x=0 \
@@ -156,6 +156,18 @@ jobs:
         echo which python before?
         which python
 
+        # build wheel using cibuildwheel
+        # as of now, we don't really use any features of cibw so it is a bit
+        # overkill, however, it does ensure that an arm64 wheel is built if
+        # the host machine has this arch. Just building the wheel using python
+        # and pip directly will result in a universal2 built which is invalid
+        # because PETSc is compiled only for arm64.
+        # cibw achieves this by setting the ARCHFLAGS env var to arm64 instead
+        # of having arm64 and x86_64
+        # One caveat of cibw is that on arm64 macs it defaults to setting
+        # MACOSX_DEPLOYMENT_TARGET to 11.0 which is the minimum target that
+        # is supported on arm64 machines. However, currently we build on 14.0
+        # so I set this manually for now.
         python -m cibuildwheel --output-dir ${WHEEL_DIR} ${PETSC4PY_DIR}
 
         echo which python after?
@@ -170,9 +182,7 @@ jobs:
       env:
         CIBW_BUILD: ${{ env.PYTHON_VERSION_STR }}-*
         CIBW_BEFORE_BUILD: "pip install cython 'numpy<2' setuptools"
-        # pass additional build flags to pip. --no-deps supplied by cibuildwheel
-        CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
-        # CIBW_ENVIRONMENT: PETSC_DIR=${{ env.PETSC_DIR }} PETSC_ARCH=${{ env.PETSC_ARCH }}
+        CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation" # additional args
         MACOSX_DEPLOYMENT_TARGET: "14.0"
 
     # - name: Build wheel for petsc4py

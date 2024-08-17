@@ -67,6 +67,9 @@ jobs:
         echo Installing MSMPI SDK
         msmpisdk.msi /quiet /passive /qn /norestart
 
+    # Following instructions from here except we use the online installers
+    # as we only need a subset of the components
+    # https://github.com/oneapi-src/oneapi-ci/blob/master/.github/workflows/build_all.yml
     - name: Install Intel OneAPI MKL
       run: tools\windows_oneapi_install.bat %WINDOWS_BASEKIT_URL% %WINDOWS_BASEKIT_COMPONENTS%
 
@@ -76,20 +79,25 @@ jobs:
     - name: Test compilers
       run: |
 
+        set SETVARS="%ProgramFiles(x86)%\Intel\oneAPI\setvars.bat"
+
+        call SETVARS
+
+        echo Environment variables
         set
 
-        call "%ProgramFiles(x86)%\Intel\oneAPI\setvars-vcvarsall.bat"
-
-        set
-
+        echo Check VS compiler
         cl
 
+        echo Check Intel compiler
         ifort
+
+        echo "set SETVARS=%SETVARS%" >> $GITHUB_ENV
 
     - name: Build and Install HYPRE
       run: |
 
-        call "%ProgramFiles(x86)%\Intel\oneAPI\setvars-vcvarsall.bat"
+        call %SETVARS%
 
         curl -O -L %HYPRE_BASE_URL%/v2.31.0.tar.gz
         tar -x -z -f v2.31.0.tar.gz

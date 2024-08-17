@@ -67,9 +67,9 @@ jobs:
         echo Installing MSMPI SDK
         msmpisdk.msi /quiet /passive /qn /norestart
 
-        echo "set MSMPI_INC="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include"" >> %GITHUB_ENV%
-        echo "set MSMPI_LIB32="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86"" >> %GITHUB_ENV%
-        echo "set MSMPI_LIB64="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64"" >> %GITHUB_ENV%
+        echo MSMPI_INC="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include" >> %GITHUB_ENV%
+        echo MSMPI_LIB32="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86" >> %GITHUB_ENV%
+        echo MSMPI_LIB64="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64" >> %GITHUB_ENV%
 
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components
@@ -90,13 +90,12 @@ jobs:
         echo Environment variables
         set
 
-        echo Check VS compiler
-        cl
+        REM echo Check VS compiler
+        REM cl
+        REM echo Check Intel compiler
+        REM ifort /help
 
-        echo Check Intel compiler
-        ifort
-
-        echo "set SETVARS=%SETVARS%" >> %GITHUB_ENV%
+        echo SETVARS=%SETVARS% >> %GITHUB_ENV%
 
     - name: Build and Install HYPRE
       run: |

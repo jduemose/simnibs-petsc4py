@@ -53,8 +53,8 @@ jobs:
     - name: Install MS-MPI
       run: |
 
-        curl -O $MSMPI_BASE_URL/msmpisetup.exe
-        curl -O $MSMPI_BASE_URL/msmpisdk.msi
+        curl -O %MSMPI_BASE_URL%/msmpisetup.exe
+        curl -O %MSMPI_BASE_URL%/msmpisdk.msi
 
         REM Install to default location (%ProgramFiles%\Microsoft MPI)
         REM msmpisetup.exe -unattend -installroot .\msmpi

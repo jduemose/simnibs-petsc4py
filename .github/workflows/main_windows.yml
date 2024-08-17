@@ -1,0 +1,141 @@
+name: Windows - Build, Test, and Upload
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - v*
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build and Upload Artifact
+    runs-on: windows-2022
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11"]
+    defaults:
+      run:
+        shell: cmd
+
+        
+    env:
+      # package versions are set in github actions variables:
+      #   settings - secrets and variables - actions - variables
+      PETSC_ARCH: arch-win-c-opt
+      PETSC_FLAGS: -O2 # C, CXX, F
+
+      # store libraries in here
+      LIB_DIR: ${{ github.workspace }}
+
+      PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
+
+      HYPRE_BASE_URL: https://github.com/hypre-space/hypre/archive/refs/tags
+
+      # OneAPI: 2024.2.1
+      WINDOWS_BASEKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/d91caaa0-7306-46ea-a519-79a0423e1903/w_BaseKit_p_2024.2.1.101_offline.exe
+      WINDOWS_BASEKIT_COMPONENTS: intel.oneapi.win.mkl.devel
+      
+      WINDOWS_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/745e923a-3f85-4e1e-b6dd-637c0e9ccba6/w_HPCKit_p_2024.2.1.80_offline.exe
+      WINDOWS_HCPKIT_COMPONENTS: intel.oneapi.win.ifort-compiler
+
+      MSMPI_BASE_URL: https://download.microsoft.com/download/A/E/0/AE002626-9D9D-448D-8197-1EA510E297CE
+    
+    steps:
+    - name: set git stuff
+      run: git config --global core.autocrlf input
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # https://github.com/cygwin/cygwin-install-action
+    # cygwin stuff is *prepended* to path so just using 'bash' should pick up cygwin's bash
+    # Default install location is C:\cygwin
+    - name: Install Cygwin
+      uses: cygwin/cygwin-install-action@master
+      with:
+        # platform: ${{ matrix.platform }}
+        packages: >-
+          python3
+          make
+          gcc-core
+          gcc-g++
+          gcc-fortran
+          liblapack-devel
+          openmpi
+          libopenmpi-devel
+          libhwloc-devel
+          libevent-devel
+          zlib-devel
+
+    - name: Test Cygwin Bash
+      shell: C:\cygwin\bin\bash.exe --login -o igncr -eo pipefail '{0}'
+      run: echo "hello from Bash" && uname -o
+
+    - name: Test Cygwin Bash 2
+      shell: bash
+      run: echo "hello from Bash" && uname -o
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python Dependencies
+      run: |
+
+        # Install build dependencies manually and use --no-build-isolation
+        # We do this to avoid building against numpy 2 as the numpy version is
+        # not specified in petsc4py's requires section
+        python -m pip install cython 'numpy<2' setuptools mkl==${{ vars.MKL_VERSION }}
+        python -m pip install pytest
+        # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+        # add-to-path: false
+    
+    - name: Install MS-MPI
+      run: |
+
+        curl -O $MSMPI_BASE_URL/msmpisetup.exe
+        curl -O $MSMPI_BASE_URL/msmpisdk.msi
+
+        # Install to default location (%ProgramFiles%\Microsoft MPI)
+        msmpisetup.exe -unattend
+        # msmpisetup.exe -unattend -installroot .\msmpi
+        
+        # Install to default location (%ProgramFiles(x86)%\Microsoft SDKs\MPI)
+        msmpisdk.msi /quiet /passive /qn /norestart
+
+    - name: Install Intel OneAPI MKL
+      run: tools\windows_oneapi_installer.bat %WINDOWS_BASEKIT_URL% %WINDOWS_BASEKIT_COMPONENTS%
+
+    - name: Install Intel OneAPI Fortran Compiler
+      run: tools\windows_oneapi_installer.bat %WINDOWS_HPCKIT_URL %WINDOWS_HPCKIT_COMPONENTS%
+      
+    - name: Build and Install HYPRE
+      run: |
+        
+        # get hypre
+        curl -O -L $HYPRE_BASE_URL/v2.31.0.tar.gz
+        tar -x -z -f v2.31.0.tar.gz
+        # this creates hypre-2.31.0
+        cd hypre-2.31.0/src
+        
+        cmake -G "Visual Studio 17 2022" ^
+          -A x64 ^
+          -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON ^
+          -DHYPRE_WITH_CXXSTANDARD=c++20 ^
+          -DHYPRE_ENABLE_SHARED=ON ^
+          -DHYPRE_WITH_MPI=ON ^
+          -S . -B cmbuild
+        # cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON -DHYPRE_WITH_CXXSTANDARD=c++20 -DHYPRE_ENABLE_SHARED=ON -DHYPRE_WITH_MPI=ON -DHYPRE_WITH_MPI_INCLUDE=%ProgramFiles(x86)\Microsoft SDKs\MPI\Include" -DHYPRE_WITH_MPI_LIB_DIRS="%ProgramFiles(x86)\Microsoft SDKs\MPI\Lib\x64" -S . -B cmbuild
+        
+        # I chose `c++20` as this seemed to be what PETSC compiled with.
+        
+        cmake --build cmbuild --config Release
+        cmake --install cmbuild
+        
+        # The default installation path ("prefix") is in `src/hypre`.
+        # we now have /hypre-2.31.0/src/hypre

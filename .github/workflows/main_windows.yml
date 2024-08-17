@@ -59,17 +59,19 @@ jobs:
         REM Install to default location (%ProgramFiles%\Microsoft MPI)
         REM msmpisetup.exe -unattend -installroot .\msmpi
 
+        echo Installing MSMPI exec
         msmpisetup.exe -unattend
 
         REM Install to default location (%ProgramFiles(x86)%\Microsoft SDKs\MPI)
 
+        echo Installing MSMPI SDK
         msmpisdk.msi /quiet /passive /qn /norestart
 
     - name: Install Intel OneAPI MKL
       run: tools\windows_oneapi_install.bat %WINDOWS_BASEKIT_URL% %WINDOWS_BASEKIT_COMPONENTS%
 
-    - name: Install Intel OneAPI Fortran Compiler
-      run: tools\windows_oneapi_install.bat %WINDOWS_HPCKIT_URL %WINDOWS_HPCKIT_COMPONENTS%
+    - name: Install Intel OneAPI Fortran Compilers
+      run: tools\windows_oneapi_install.bat %WINDOWS_HPCKIT_URL% %WINDOWS_HPCKIT_COMPONENTS%
 
     - name: Test compilers
       run: |

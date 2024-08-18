@@ -25,7 +25,7 @@ fi
 #HYPRE_PREFIX=$(cygpath -u 'C:\Users\jespe\Downloads\hypre-2.31.0\src\hypre')
 #MPI_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files (x86)\Microsoft SDKs\MPI'))
 #MPIEXEC_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files\Microsoft MPI'))
-PETSC_NAME=$1 # petsc-3.21.4
+PETSC_VERSION=$1 # e.g., 3.21.4
 PETSC_ARCH=$2 # arch-mswin-c-opt-mkl
 
 # HYPRE_PREFIX=$(cygpath -u $2)
@@ -77,8 +77,9 @@ else
     MSMPI_LIB64=$(cygpath -u $(cygpath -ms "${MSMPI_LIB64}"))
 fi
 
-if [ ! -d "${PETSC_NAME}" ]; then
-    echo "Downloading ${PETSC_NAME}"
+PETSC_NAME=petsc-${PETSC_VERSION}
+if [ ! -d "${PETSC_VERSION}" ]; then
+    echo "Downloading PETSc ${PETSC_VERSION}"
     curl -O -L https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_NAME}.tar.gz
     tar -xzf ${PETSC_NAME}.tar.gz
 fi
@@ -118,26 +119,28 @@ if [ -f "/usr/bin/link.exe" ]; then
     mv /usr/bin/link.exe /usr/bin/link-cygwin.exe
 fi
 
+# fp:precise
+
 ./configure \
---PETSC_DIR=$PETSC_DIR \
---PETSC_ARCH=$PETSC_ARCH \
---with-cc='win32fe cl' \
---with-cxx='win32fe cl' \
---with-fc='win32fe ifort' \
---with-fortran-bindings=0 \
---with-debugging=0 \
---COPTFLAGS='-O2' \
---CXXOPTFLAGS='-O2' \
---FOPTFLAGS='-O2' \
---with-mpi-include=\[$MSMPI_INC,$MSMPI_INC/x64\] \
---with-mpi-lib=\[$MSMPI_LIB64/msmpi.lib,$MSMPI_LIB64/msmpifec.lib\] \
---with-mpiexec=$MSMPI_BIN/mpiexec \
---with-hypre-include=$HYPRE_INC \
---with-hypre-lib=$HYPRE_LIB/HYPRE.lib \
---with-blaslapack-lib=\[$MKL_LIB/mkl_core_dll.lib,$MKL_LIB/mkl_intel_lp64_dll.lib,$MKL_LIB/mkl_intel_thread_dll.lib\] \
---with-mkl_pardiso-include=$MKL_INC \
---with-mkl_pardiso-lib=\[$MKL_LIB/mkl_core_dll.lib,$MKL_LIB/mkl_intel_lp64_dll.lib,$MKL_LIB/mkl_intel_thread_dll.lib\] \
---with-shared-libraries=1
+    --PETSC_DIR=$PETSC_DIR \
+    --PETSC_ARCH=$PETSC_ARCH \
+    --with-cc='win32fe cl' \
+    --with-cxx='win32fe cl' \
+    --with-fc='win32fe ifort' \
+    --with-fortran-bindings=0 \
+    --with-debugging=0 \
+    --COPTFLAGS='-O2' \
+    --CXXOPTFLAGS='-O2' \
+    --FOPTFLAGS='-O2' \
+    --with-mpi-include=\[$MSMPI_INC,$MSMPI_INC/x64\] \
+    --with-mpi-lib=\[$MSMPI_LIB64/msmpi.lib,$MSMPI_LIB64/msmpifec.lib\] \
+    --with-mpiexec=$MSMPI_BIN/mpiexec \
+    --with-hypre-include=$HYPRE_INC \
+    --with-hypre-lib=$HYPRE_LIB/HYPRE.lib \
+    --with-blaslapack-lib=\[$MKL_LIB/mkl_core_dll.lib,$MKL_LIB/mkl_intel_lp64_dll.lib,$MKL_LIB/mkl_intel_thread_dll.lib\] \
+    --with-mkl_pardiso-include=$MKL_INC \
+    --with-mkl_pardiso-lib=\[$MKL_LIB/mkl_core_dll.lib,$MKL_LIB/mkl_intel_lp64_dll.lib,$MKL_LIB/mkl_intel_thread_dll.lib\] \
+    --with-shared-libraries=1
 
 
 make all

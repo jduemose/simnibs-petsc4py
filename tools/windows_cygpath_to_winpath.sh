@@ -4,10 +4,10 @@
 # ARGS
 #   1 : name of file to do replacements in
 
-PETSC_NAME=$1
+PETSC_DIR=$1
 PETSC_ARCH=$2
 
-PETSC_DIR=$PWD/$PETSC_NAME
+PETSC_DIR=$(cygpath -u ${PETSC_DIR})
 
 FILENAME=$PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/petscvariables
 

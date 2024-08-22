@@ -12,7 +12,7 @@ from petsc4py import PETSc
 
 S = sp.sparse.load_npz("data/system_matrix.npz")
 rhs = np.load("data/system_rhs.npz")["arr_0"]
-sol = np.load("data/system_solution_10.npz")["arr_0"]
+sol = np.load("data/system_sol.npz")["arr_0"]
 
 # S.data = S.data.astype(np.float64)
 # S = sp.sparse.triu(S).tocsr()
@@ -23,11 +23,13 @@ A.createAIJ(size=S.shape, csr=(S.indptr, S.indices, S.data))
 A.assemble()
 
 # PREONLY: use a single application of the preconditioner only
-ksp_type = PETSc.KSP.Type.PREONLY # "cg"
+ksp_type = PETSc.KSP.Type.PREONLY
 # if SPD: cholesky
 # otherwise: LU
 pc_type = PETSc.PC.Type.CHOLESKY
 factor_solver_type = PETSc.Mat.SolverType.MKL_PARDISO
+
+# ksp_type = PETSc.KSP.Type.CG
 # pc_type=PETSc.PC.Type.HYPRE
 # factor_solver_type=None
 
@@ -63,20 +65,19 @@ print(f"Time to prepare KSP: {time.perf_counter() - a:.4f}")
 b = A.createVecLeft()
 x = A.createVecRight()
 
-for i in range(len(sol)):
+for thisrhs,s in zip(rhs, sol):
 
-    b.array[:] = rhs[i]
+    b.array[:] = thisrhs
 
     # solve
     start = time.perf_counter()
     ksp.solve(b, x)
     stop = time.perf_counter()
+    print(f"{stop-start:.4f} s")
 
     # print(ksp.getResidualNorm())
 
-    print(f"{stop-start:.4f} s")
-
-    # print(x[:])
-    # print(x[:] - sol[i])
+    assert np.allclose(x[:], s)
+    # print(x[:] - s)
     # print((x[:] - sol[i])/sol[i])
 print(f"total {time.perf_counter()-aa:.4f}")

@@ -22,11 +22,14 @@ A = PETSc.Mat(comm=PETSc.COMM_WORLD)
 A.createAIJ(size=S.shape, csr=(S.indptr, S.indices, S.data))
 A.assemble()
 
-ksp_type = PETSc.KSP.Type.CG # "cg"
-pc_type = PETSc.PC.Type.LU
+# PREONLY: use a single application of the preconditioner only
+ksp_type = PETSc.KSP.Type.PREONLY # "cg"
+# if SPD: cholesky
+# otherwise: LU
+pc_type = PETSc.PC.Type.CHOLESKY
 factor_solver_type = PETSc.Mat.SolverType.MKL_PARDISO
-pc_type=PETSc.PC.Type.HYPRE
-factor_solver_type=None
+# pc_type=PETSc.PC.Type.HYPRE
+# factor_solver_type=None
 
 if pc_type == PETSc.PC.Type.HYPRE:
     options = PETSc.Options()

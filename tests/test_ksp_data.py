@@ -1,6 +1,6 @@
 import time
 
-import mkl
+# import mkl
 import numpy as np
 import scipy as sp
 
@@ -18,32 +18,44 @@ sol = np.load("data/system_solution_10.npz")["arr_0"]
 # S = sp.sparse.triu(S).tocsr()
 # S.data = S.data.astype(np.float64)
 
-A = PETSc.Mat()
+A = PETSc.Mat(comm=PETSc.COMM_WORLD)
 A.createAIJ(size=S.shape, csr=(S.indptr, S.indices, S.data))
 A.assemble()
 
-#rtol=1e-10
-ksp_type="cg"
-pc_type="lu"
-factor_solver_type= "mkl_pardiso"
-# pc_type="hypre"
-# factor_solver_type=None
+ksp_type = PETSc.KSP.Type.CG # "cg"
+pc_type = PETSc.PC.Type.LU
+factor_solver_type = PETSc.Mat.SolverType.MKL_PARDISO
+pc_type=PETSc.PC.Type.HYPRE
+factor_solver_type=None
 
-#-pc_hypre_type boomeramg
-#-pc_hypre_boomeramg_coarsen_type HMIS
-
+if pc_type == PETSc.PC.Type.HYPRE:
+    options = PETSc.Options()
+    #-pc_hypre_boomeramg_coarsen_type HMIS
+    options["pc_hypre_boomeramg_coarsen_type"] = "HMIS"
 
 # Build KSP solver object
-ksp = PETSc.KSP().create()
+ksp = PETSc.KSP()
+ksp.create(comm=A.getComm())
 ksp.setOperators(A)
-# ksp.setTolerances(rtol=rtol)
+ksp.setTolerances(rtol=1e-10)
 ksp.setType(ksp_type)
 ksp.setConvergenceHistory()
 ksp.getPC().setType(pc_type)
+if ksp.getPC().getType() == "hypre":
+    # #-pc_hypre_type boomeramg
+    ksp.getPC().setHYPREType("boomeramg")
+    ksp.getPC().setFromOptions()
+
 if factor_solver_type is not None:
     ksp.getPC().setFactorSolverType(factor_solver_type)
 
 aa = time.perf_counter()
+
+print("Preparing KSP")
+# PC preparation
+a = time.perf_counter()
+ksp.setUp()
+print(f"Time to prepare KSP: {time.perf_counter() - a:.4f}")
 
 b = A.createVecLeft()
 x = A.createVecRight()
@@ -54,8 +66,10 @@ for i in range(len(sol)):
 
     # solve
     start = time.perf_counter()
-    ksp(b, x)
+    ksp.solve(b, x)
     stop = time.perf_counter()
+
+    # print(ksp.getResidualNorm())
 
     print(f"{stop-start:.4f} s")
 

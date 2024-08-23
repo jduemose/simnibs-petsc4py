@@ -27,7 +27,7 @@ ksp_type = PETSc.KSP.Type.PREONLY
 # if SPD: cholesky
 # otherwise: LU
 pc_type = PETSc.PC.Type.CHOLESKY
-factor_solver_type = PETSc.Mat.SolverType.MKL_PARDISO
+factor_solver_type = PETSc.Mat.SolverType.MUMPS # MKL_PARDISO
 
 # ksp_type = PETSc.KSP.Type.CG
 # pc_type=PETSc.PC.Type.HYPRE
@@ -53,6 +53,8 @@ if ksp.getPC().getType() == "hypre":
 
 if factor_solver_type is not None:
     ksp.getPC().setFactorSolverType(factor_solver_type)
+    # MUMPS: to explicitly set the permutation analysis tool to METIS
+    # ksp.getPC().getFactorMatrix().setMumpsIcntl(7, 5)
 
 aa = time.perf_counter()
 

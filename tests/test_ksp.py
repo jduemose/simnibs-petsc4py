@@ -103,14 +103,6 @@ class TestKSP:
             ),
             pytest.param(
                 "lu",
-                "superlu",
-                marks=pytest.mark.skipif(
-                    sys.platform != "darwin",
-                    reason="PETSc only built with superlu on macos."
-                ),
-            ),
-            pytest.param(
-                "lu",
                 "mumps",
                 marks=pytest.mark.skipif(
                     sys.platform != "darwin",

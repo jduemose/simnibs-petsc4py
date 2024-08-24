@@ -73,9 +73,10 @@ jobs:
         echo Installing MSMPI SDK
         msmpisdk.msi /quiet /passive /qn /norestart
 
-        echo MSMPI_INC="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include" >> %GITHUB_ENV%
-        echo MSMPI_LIB32="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86" >> %GITHUB_ENV%
-        echo MSMPI_LIB64="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64" >> %GITHUB_ENV%
+        echo MSMPI_BIN=%ProgramFiles%\Microsoft MPI\Bin >> %GITHUB_ENV%
+        echo MSMPI_INC=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include >> %GITHUB_ENV%
+        echo MSMPI_LIB32=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86 >> %GITHUB_ENV%
+        echo MSMPI_LIB64=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64 >> %GITHUB_ENV%
 
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components

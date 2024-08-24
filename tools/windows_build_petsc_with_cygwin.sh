@@ -2,19 +2,11 @@
 # execute
 #
 # call "%ProgramFiles(x86)%\Intel\oneAPI\setvars"
-
 #
 # before calling this script. This sets intel and msvc variables, paths, etc.
 #
 # sets MKLROOT etc.
 # adds ifort to path
-
-#PETSC_ARCH=arch-mswin-c-opt-mkl
-
-# C:\Users\jdue\cygwin\bin\bash.exe --login -o igncr -eo pipefail C:\Users\jdue\Documents\repositories\simnibs-petsc4py\cygwin_build_petsc.sh %PETSC_NAME% %PETSC_ARCH%
-
-# %ProgramFiles%
-# %ProgramFiles(x86)%
 
 PLATFORM=$(uname -o)
 if [ $PLATFORM != "Cygwin" ]; then
@@ -22,16 +14,8 @@ if [ $PLATFORM != "Cygwin" ]; then
     exit 1
 fi
 
-#HYPRE_PREFIX=$(cygpath -u 'C:\Users\jespe\Downloads\hypre-2.31.0\src\hypre')
-#MPI_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files (x86)\Microsoft SDKs\MPI'))
-#MPIEXEC_PREFIX=$(cygpath -u $(cygpath -ms 'C:\Program Files\Microsoft MPI'))
-PETSC_VERSION=$1 # e.g., 3.21.4
-PETSC_ARCH=$2 # arch-mswin-c-opt-mkl
-
-# HYPRE_PREFIX=$(cygpath -u $2)
-# MPI_PREFIX=$(cygpath -u $(cygpath -ms $3))
-# MPIEXEC_PREFIX=$(cygpath -u $(cygpath -ms $4))
-# MKLROOT=$(cygpath -u $5)
+PETSC_VERSION=$1    # e.g., 3.21.4
+PETSC_ARCH=$2       # arch-mswin-c-opt-mkl
 
 # MKL
 if [ -z "${MKLROOT}" ]; then
@@ -46,7 +30,7 @@ fi
 # HYPRE
 if [ -z "${HYPRE_INSTALL_DIR}" ]; then
     echo HYPRE_INSTALL_DIR not set
-    # exit 1
+    exit 1
 else
     HYPRE_INSTALL_DIR=$(cygpath -u $(cygpath -ms "${HYPRE_INSTALL_DIR}"))
     HYPRE_BIN=$HYPRE_INSTALL_DIR/bin
@@ -57,14 +41,14 @@ fi
 # # MSMPI
 if [ -z "${MSMPI_BIN}" ]; then
     echo MSMPI_BIN not set
-    # exit 1
+    exit 1
 else
     MSMPI_BIN=$(cygpath -u $(cygpath -ms "${MSMPI_BIN}"))
 fi
 
 if [ -z "${MSMPI_INC}" ]; then
     echo MSMPI_INC not set
-    # exit 1
+    exit 1
 else
     MSMPI_INC=$(cygpath -u $(cygpath -ms "${MSMPI_INC}"))
 
@@ -72,7 +56,7 @@ fi
 
 if [ -z "${MSMPI_LIB64}" ]; then
     echo MSMPI_LIB64 not set
-    # exit 1
+    exit 1
 else
     MSMPI_LIB64=$(cygpath -u $(cygpath -ms "${MSMPI_LIB64}"))
 fi
@@ -90,7 +74,7 @@ fi
 # deprecated.
 if ! command -v ifort &> /dev/null; then
     echo "ifort could not be found"
-    # exit 1
+    exit 1
 fi
 
 PETSC_DIR=$(realpath $PWD/$PETSC_NAME)

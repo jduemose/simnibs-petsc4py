@@ -2,7 +2,6 @@
 # corresponding Windows path (i.e., C:/...)
 
 # ARGS
-#   1 : name of file to do replacements in
 
 PETSC_DIR=$1
 PETSC_ARCH=$2

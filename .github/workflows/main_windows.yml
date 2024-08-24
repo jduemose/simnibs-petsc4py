@@ -23,7 +23,7 @@ jobs:
     env:
       # package versions are set in github actions variables:
       #   settings - secrets and variables - actions - variables
-      PETSC_ARCH: arch-win-c-opt
+      PETSC_ARCH: arch-win-c-opt-mkl
       PETSC_VERSION: ${{ vars.PETSC_VERSION }}
 
       PETSC_FLAGS: -O2 # C, CXX, F
@@ -194,7 +194,7 @@ jobs:
         REM Fix petscvariables
 
         REM replace cygwin paths with windows paths in `petscvariables` file
-        C:\Users\jdue\cygwin\bin\bash --login -o igncr -eo pipefail %cd%\tools\windows_cygpath_to_winpath.sh %PETSC_DIR% %PETSC_ARCH%
+        bash --login -o igncr -eo pipefail %cd%\tools\windows_prepare_petscvariables.sh %PETSC_DIR% %PETSC_ARCH%
 
         REM Fix petsc library name and convert cygwin paths to windows paths
         REM the '' around PETSC_DIR are important to protect \ in path

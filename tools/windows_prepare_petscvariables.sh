@@ -3,7 +3,7 @@
 
 # ARGS
 
-PETSC_DIR=$1
+PETSC_DIR=$1 # \ must be protected!
 PETSC_ARCH=$2
 
 PETSC_DIR=$(cygpath -u ${PETSC_DIR})
@@ -36,3 +36,5 @@ sed -i "s/${CYGWIN_ROOT_ESC}/${CYGWIN_ROOT_WIN_ESC}/g" $FILENAME
 # convert "/home/user" to "/path/to/cygwin/home/user"
 # ignore the line defining "wPETSC_DIR" as this is window already!
 sed -i "/^wPETSC_DIR/! s/${HOME_ESC}/${HOME_WIN_ESC}/g" $FILENAME
+
+sed -i "s/-lpetsc/-llibpetsc/g" $FILENAME

@@ -169,7 +169,8 @@ jobs:
 
         call %SETVARS%
 
-        echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%" >> %GITHUB_ENV%
+        REM we should have build script return this or pass it
+        echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION% >> %GITHUB_ENV%
 
         bash --login -o igncr -eo pipefail ^
           %cd%\tools\windows_build_petsc_with_cygwin.sh ^
@@ -190,23 +191,29 @@ jobs:
     - name: Build petsc4py
       run: |
 
+        REM Fix petscvariables
+
         REM replace cygwin paths with windows paths in `petscvariables` file
+        C:\Users\jdue\cygwin\bin\bash --login -o igncr -eo pipefail %cd%\tools\windows_cygpath_to_winpath.sh %PETSC_DIR% %PETSC_ARCH%
 
-        bash --login -o igncr -eo pipefail %cd%\tools\windows_cygpath_to_winpath.sh %PETSC_DIR% %PETSC_ARCH%
+        REM Fix petsc library name and convert cygwin paths to windows paths
+        REM the '' around PETSC_DIR are important to protect \ in path
+        python tools\windows_prepare_petscvariables.sh '%PETSC_DIR%' %PETSC_ARCH%
 
-        REM Download petsc4py
+        REM Download petsc4py and build wheel
 
         pip download --no-deps --no-build-isolation petsc4py==%PETSC_VERSION%
         tar -x -z -f petsc4py-%PETSC_VERSION%.tar.gz
 
         set PETSC4PY_DIR=%cd%\petsc4py-%PETSC_VERSION%
+        echo PETSC4PY_DIR=%PETSC4PY_DIR% >> %GITHUB_ENV%
         set WHEEL_DIR=%PETSC4PY_DIR%\wheelhouse
+        echo WHEEL_DIR=%WHEEL_DIR% >> %GITHUB_ENV%
 
-        REM flags are not read unless GCC was used (it seems)
-
+        REM Flags from petscvariables are not read unless GCC was used so we
+        REM need to set them manually
         set CL=-GF -MD -wd4996 -Zc:preprocessor  -O2
 
-        REM set CL=
         REM for /f %i in ('python tools\windows_extract_args_from_petscvariables.py C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\arch-mswin-c-opt-mkl\lib\petsc\conf\petscvariables CC_FLAGS') do set CL=%i
 
         REM we need to add HYPRE and msmpi
@@ -216,14 +223,9 @@ jobs:
         REM                r'C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\lib'],
         REM pip install --global-option="-LC:\\Program Files\ (x86)\Microsoft\ SDKs\\MPI\\Lib\\x64 -L" --build-option="-llibpetsc -lmsmpi -lHYPRE -lmkl_tbb_thread"
 
-        REM Fix petsc library name
-        REM PETSC_LIB_BASIC = -llibpetsc
-        REM ---> PETSC_LIB_BASIC = -lpetsc
+        python tools\windows_patch_petsc4py_pre_build.py %PETSC4PY_DIR%
 
         pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
-
-        echo PETSC4PY_DIR=%PETSC4PY_DIR% >> %GITHUB_ENV%
-        echo WHEEL_DIR=%WHEEL_DIR% >> %GITHUB_ENV%
 
     - name: Fix petsc4py
       run: |
@@ -236,14 +238,14 @@ jobs:
 
         REM Copy DLLs into wheel next to PETSc*.pyd
         set DLL_DIR=%UNPACK_DIR%\petsc4py\lib\%PETSC_ARCH%
-        copy %PETSC_DIR\%PETSC_ARCH\lib\libpetsc.dll %DLL_DIR%
+        copy %PETSC_DIR%\%PETSC_ARCH%\lib\libpetsc.dll %DLL_DIR%
         copy %HYPRE_INSTALL_DIR%\bin\HYPRE.dll %DLL_DIR%
         copy C:\WINDOWS\system32\msmpi.dll %DLL_DIR%
         copy C:\WINDOWS\system32\msvcp140.dll %DLL_DIR%
 
         REM Append to file in order to discover MKL DLLs
-        type tools\windows_petsc4py_patch.py >> %UNPACK_DIR%\lib\__init__.py
-
+        REM type tools\windows_petsc4py_patch.py >> %UNPACK_DIR%\lib\__init__.py
+        python tools\windows_patch_petsc4py_post_build.py %UNPACK_DIR%
 
         wheel pack -d %WHEEL_DIR% %UNPACK_DIR%
 

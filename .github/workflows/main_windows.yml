@@ -110,9 +110,7 @@ jobs:
 
         echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%" >> %GITHUB_ENV%
 
-        C:\cygwin\bin\bash.exe --login -o igncr -eo pipefail tools\windows_build_petsc_with_cygwin.sh %PETSC_VERSION% %PETSC_ARCH%
-        bash --login -o igncr -eo pipefail tools\windows_build_petsc_with_cygwin.sh %PETSC_VERSION% %PETSC_ARCH%
-
+        bash --login -o igncr -eo pipefail %cd%\tools\windows_build_petsc_with_cygwin.sh %PETSC_VERSION% %PETSC_ARCH%
 
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components

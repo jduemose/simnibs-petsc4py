@@ -106,8 +106,6 @@ fi
 # fp:precise
 
 ./configure \
-    --PETSC_DIR=$PETSC_DIR \
-    --PETSC_ARCH=$PETSC_ARCH \
     --with-cc='win32fe cl' \
     --with-cxx='win32fe cl' \
     --with-fc='win32fe ifort' \
@@ -124,11 +122,12 @@ fi
     --with-blaslapack-lib=\[$MKL_LIB/mkl_core_dll.lib,$MKL_LIB/mkl_intel_lp64_dll.lib,$MKL_LIB/mkl_intel_thread_dll.lib\] \
     --with-mkl_pardiso-include=$MKL_INC \
     --with-mkl_pardiso-lib=\[$MKL_LIB/mkl_core_dll.lib,$MKL_LIB/mkl_intel_lp64_dll.lib,$MKL_LIB/mkl_intel_thread_dll.lib\] \
+    --with-make-exec=/usr/bin/make \
     --with-shared-libraries=1
 
-make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH all
+make all
 # We need to add the path to the HYPRE dll in order for the checks to succeed
 # (ldd $PETSC_DIR/$PETSC_ARCH/lib/libpetsc.dll will show that HYPRE.dll is not
 # found).
 export PATH=$HYPRE_BIN:$PATH
-make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH check
+make check

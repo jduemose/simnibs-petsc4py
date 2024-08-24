@@ -55,11 +55,6 @@ jobs:
     - name: Install MS-MPI
       run: |
 
-        dir
-        dir tools
-
-        bash --login -o igncr -eo pipefail tools\windows_build_petsc_with_cygwin.sh
-
         curl -O %MSMPI_BASE_URL%/msmpisetup.exe
         curl -O %MSMPI_BASE_URL%/msmpisdk.msi
 
@@ -77,6 +72,47 @@ jobs:
         echo MSMPI_INC="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include" >> %GITHUB_ENV%
         echo MSMPI_LIB32="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86" >> %GITHUB_ENV%
         echo MSMPI_LIB64="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64" >> %GITHUB_ENV%
+
+    # https://github.com/cygwin/cygwin-install-action
+    # cygwin stuff is *prepended* to path so just using 'bash' should pick up cygwin's bash whereas it is usually git bash
+    # Default install location is C:\cygwin
+    # cygwin bash: C:\cygwin\bin\bash.exe
+    - name: Install Cygwin
+      uses: cygwin/cygwin-install-action@master
+      with:
+        # platform: ${{ matrix.platform }}
+        # add-to-path: false
+        packages: >-
+          python3
+          make
+          gcc-core
+          gcc-g++
+          gcc-fortran
+          liblapack-devel
+          openmpi
+          libopenmpi-devel
+          libhwloc-devel
+          libevent-devel
+          zlib-devel
+
+    - name: Test Cygwin Bash
+      shell: C:\cygwin\bin\bash.exe --login -o igncr -eo pipefail '{0}'
+      run: echo "hello from Bash" && uname -o
+
+    - name: Test Cygwin Bash 2
+      shell: bash --login -o igncr -eo pipefail '{0}'
+      run: echo "hello from Bash" && uname -o
+
+    - name: Build PETSc
+      run: |
+
+        call %SETVARS%
+
+        echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%" >> %GITHUB_ENV%
+
+        C:\cygwin\bin\bash.exe --login -o igncr -eo pipefail tools\windows_build_petsc_with_cygwin.sh %PETSC_VERSION% %PETSC_ARCH%
+        bash --login -o igncr -eo pipefail tools\windows_build_petsc_with_cygwin.sh %PETSC_VERSION% %PETSC_ARCH%
+
 
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components
@@ -134,45 +170,6 @@ jobs:
 
         echo HYPRE_INSTALL_DIR=%GITHUB_WORKSPACE%\hypre-2.31.0\src\hypre >> %GITHUB_ENV%
 
-    # https://github.com/cygwin/cygwin-install-action
-    # cygwin stuff is *prepended* to path so just using 'bash' should pick up cygwin's bash whereas it is usually git bash
-    # Default install location is C:\cygwin
-    # cygwin bash: C:\cygwin\bin\bash.exe
-    - name: Install Cygwin
-      uses: cygwin/cygwin-install-action@master
-      with:
-        # platform: ${{ matrix.platform }}
-        # add-to-path: false
-        packages: >-
-          python3
-          make
-          gcc-core
-          gcc-g++
-          gcc-fortran
-          liblapack-devel
-          openmpi
-          libopenmpi-devel
-          libhwloc-devel
-          libevent-devel
-          zlib-devel
-
-    # - name: Test Cygwin Bash
-    #   shell: C:\cygwin\bin\bash.exe --login -o igncr -eo pipefail '{0}'
-    #   run: echo "hello from Bash" && uname -o
-
-    # - name: Test Cygwin Bash 2
-    #   shell: bash --login -o igncr -eo pipefail '{0}'
-    #   run: echo "hello from Bash" && uname -o
-
-    - name: Build PETSc
-      run: |
-
-        call %SETVARS%
-
-        echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%" >> %GITHUB_ENV%
-
-        bash --login -o igncr -eo pipefail ^
-          tools\windows_build_petsc_with_cygwin.sh %PETSC_VERSION% %PETSC_ARCH%
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5

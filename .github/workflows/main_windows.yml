@@ -23,7 +23,7 @@ jobs:
     env:
       # package versions are set in github actions variables:
       #   settings - secrets and variables - actions - variables
-      PETSC_ARCH: arch-win-c-opt-mkl
+      PETSC_ARCH: arch-win-c-opt
       PETSC_VERSION: ${{ vars.PETSC_VERSION }}
 
       PETSC_FLAGS: -O2 # C, CXX, F

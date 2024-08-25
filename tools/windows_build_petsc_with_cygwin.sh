@@ -86,6 +86,7 @@ echo "   PETSC_DIR  $PETSC_DIR"
 echo "   PETSC_ARCH $PETSC_ARCH"
 echo
 echo "HYPRE"
+echo "   BIN        $HYPRE_BIN"
 echo "   INCLUDE    $HYPRE_INC"
 echo "   LIB        $HYPRE_LIB"
 echo "MSMPI"
@@ -104,6 +105,9 @@ if [ -f "/usr/bin/link.exe" ]; then
 fi
 
 # fp:precise
+
+# We need to point to Cygwin's make on Github Actions windows runners as
+# otherwise gmake from a perl distribution seems to be used!
 
 ./configure \
     --with-cc='win32fe cl' \
@@ -129,5 +133,6 @@ make all
 # We need to add the path to the HYPRE dll in order for the checks to succeed
 # (ldd $PETSC_DIR/$PETSC_ARCH/lib/libpetsc.dll will show that HYPRE.dll is not
 # found).
-export PATH=$HYPRE_BIN:$PATH
+echo Adding HYPRE to PATH : ${HYPRE_BIN}
+export PATH=$PATH:${HYPRE_BIN}
 make check

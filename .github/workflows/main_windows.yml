@@ -184,7 +184,7 @@ jobs:
         REM We do this to avoid building against numpy 2 as the numpy version is
         REM not specified in petsc4py's requires section
 
-        pip install cython delvewheel mkl==${{ vars.MKL_VERSION }} 'numpy<2' setuptools wheel
+        pip install cython delvewheel mkl==${{ vars.MKL_VERSION }} numpy==1.26 setuptools wheel
         pip install pytest scipy
 
         REM if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
@@ -195,15 +195,12 @@ jobs:
         REM Fix petscvariables
 
         REM replace cygwin paths with windows paths in `petscvariables` file
-        bash --login -o igncr -eo pipefail %cd%\tools\windows_prepare_petscvariables.sh %PETSC_DIR% %PETSC_ARCH%
-
-        REM Fix petsc library name and convert cygwin paths to windows paths
         REM the '' around PETSC_DIR are important to protect \ in path
-        python tools\windows_prepare_petscvariables.sh '%PETSC_DIR%' %PETSC_ARCH%
+        bash --login -o igncr -eo pipefail %cd%\tools\windows_prepare_petscvariables.sh '%PETSC_DIR%'' %PETSC_ARCH%
 
         REM Download petsc4py and build wheel
 
-        pip download --no-deps --no-build-isolation petsc4py==%PETSC_VERSION%
+        pip download --no-deps --no-build-isolation -d %cd% petsc4py==%PETSC_VERSION%
         tar -x -z -f petsc4py-%PETSC_VERSION%.tar.gz
 
         set PETSC4PY_DIR=%cd%\petsc4py-%PETSC_VERSION%

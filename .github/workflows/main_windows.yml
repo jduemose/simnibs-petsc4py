@@ -36,11 +36,12 @@ jobs:
       HYPRE_BASE_URL: https://github.com/hypre-space/hypre/archive/refs/tags
 
       # OneAPI: 2024.2.1
-      WINDOWS_BASEKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/d91caaa0-7306-46ea-a519-79a0423e1903/w_BaseKit_p_2024.2.1.101.exe
-      WINDOWS_BASEKIT_COMPONENTS: intel.oneapi.win.mkl.devel
+      INTEL_BASEKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/d91caaa0-7306-46ea-a519-79a0423e1903/w_BaseKit_p_2024.2.1.101.exe
+      INTEL_BASEKIT_COMPONENTS: intel.oneapi.win.mkl.devel
 
-      WINDOWS_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/745e923a-3f85-4e1e-b6dd-637c0e9ccba6/w_HPCKit_p_2024.2.1.80.exe
-      WINDOWS_HCPKIT_COMPONENTS: intel.oneapi.win.ifort-compiler
+      INTEL_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/745e923a-3f85-4e1e-b6dd-637c0e9ccba6/w_HPCKit_p_2024.2.1.80.exe
+      INTEL_HPCKIT_COMPONENTS: intel.oneapi.win.ifort-compiler
+      # intel.oneapi.win.mpi.devel
 
       MSMPI_BASE_URL: https://download.microsoft.com/download/A/E/0/AE002626-9D9D-448D-8197-1EA510E297CE
 
@@ -82,10 +83,10 @@ jobs:
     # as we only need a subset of the components
     # https://github.com/oneapi-src/oneapi-ci/blob/master/.github/workflows/build_all.yml
     - name: Install Intel OneAPI MKL
-      run: tools\windows_oneapi_install.bat %WINDOWS_BASEKIT_URL% %WINDOWS_BASEKIT_COMPONENTS%
+      run: tools\windows_oneapi_install.bat %INTEL_BASEKIT_URL% %INTEL_BASEKIT_COMPONENTS%
 
     - name: Install Intel OneAPI Fortran Compilers
-      run: tools\windows_oneapi_install.bat %WINDOWS_HPCKIT_URL% %WINDOWS_HPCKIT_COMPONENTS%
+      run: tools\windows_oneapi_install.bat %INTEL_HPCKIT_URL% %INTEL_HPCKIT_COMPONENTS%
 
     - name: Test compilers
       run: |
@@ -115,16 +116,16 @@ jobs:
 
         REM -DHYPRE_WITH_CXXSTANDARD=c++20 ^
 
-        REM specify MSMPI otherwise Intel MPI is used because of SETVARS
+        REM will pick up Intel MPI automatically because of SETVARS!
 
         cmake -G "Visual Studio 17 2022" ^
           -A x64 ^
           -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON ^
           -DHYPRE_ENABLE_SHARED=ON ^
           -DHYPRE_WITH_MPI=ON ^
-          -DHYPRE_WITH_MPI_INCLUDE=%MSMPI_INC% ^
-          -DHYPRE_WITH_MPI_LIB_DIRS=%MSMPI_LIB64% ^
           -S . -B cmbuild
+
+        REM -DHYPRE_WITH_OPENMP=ON ^
 
         cmake --build cmbuild --config Release
         cmake --install cmbuild

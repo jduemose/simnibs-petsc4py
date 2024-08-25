@@ -1,4 +1,3 @@
-
 # execute
 #
 # call "%ProgramFiles(x86)%\Intel\oneAPI\setvars"

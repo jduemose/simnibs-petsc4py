@@ -82,11 +82,27 @@ jobs:
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components
     # https://github.com/oneapi-src/oneapi-ci/blob/master/.github/workflows/build_all.yml
+
+
+    - uses: actions/cache/restore@v4
+      id: oneapi-cache
+      with:
+        path: C:\Program Files (x86)\Intel\oneAPI
+        key: ${{ runner.os }}-oneapi
+
     - name: Install Intel OneAPI MKL
+      if: steps.oneapi-cache.outputs.cache-hit != 'true'
       run: tools\windows_oneapi_install.bat %INTEL_BASEKIT_URL% %INTEL_BASEKIT_COMPONENTS%
 
     - name: Install Intel OneAPI Fortran Compilers
+      if: steps.oneapi-cache.outputs.cache-hit != 'true'
       run: tools\windows_oneapi_install.bat %INTEL_HPCKIT_URL% %INTEL_HPCKIT_COMPONENTS%
+
+    - uses: actions/cache/save@v4
+      if: steps.oneapi-cache.outputs.cache-hit != 'true'
+      with:
+        path: C:\Program Files (x86)\Intel\oneAPI
+        key: ${{ runner.os }}-oneapi
 
     - name: Test compilers
       run: |
@@ -170,12 +186,13 @@ jobs:
         echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION% >> %GITHUB_ENV%
 
     - uses: actions/cache/restore@v4
+      id: petsc-cache
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
     - name: Build PETSc
-      if: steps.cache-petsc.outputs.cache-hit != 'true'
+      if: steps.petsc-cache.outputs.cache-hit != 'true'
       run: |
 
         call %SETVARS%
@@ -188,7 +205,7 @@ jobs:
           %PETSC_VERSION% %PETSC_ARCH%
 
     - uses: actions/cache/save@v4
-      if: steps.cache-petsc.outputs.cache-hit != 'true'
+      if: steps.petsc-cache.outputs.cache-hit != 'true'
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
@@ -241,15 +258,15 @@ jobs:
 
         pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
 
-
-
     - name: Fix petsc4py
       run: |
 
-        REM Show dependencies that needs to be vendored into the wheel
-        delvewheel show %WHEEL_DIR%\*.whl
+        set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
 
-        wheel unpack -d %WHEEL_DIR% %WHEEL_DIR%\*.whl
+        REM Show dependencies that needs to be vendored into the wheel
+        delvewheel show %WHEEL_DIR%\%WHEEL_NAME%
+
+        wheel unpack -d %WHEEL_DIR% %WHEEL_DIR%\%WHEEL_NAME%
         set UNPACK_DIR=%WHEEL_DIR%\petsc4py-%PETSC_VERSION%
 
         REM Copy DLLs into wheel next to PETSc*.pyd
@@ -266,7 +283,7 @@ jobs:
         wheel pack -d %WHEEL_DIR% %UNPACK_DIR%
 
     - name: Install petsc4py
-      run: pip install %WHEEL_DIR%\*.whl
+      run: pip install %WHEEL_DIR%\petsc4py-3.21.3-cp311-cp311-win_amd64.whl
 
     - name: Running tests shipped with petsc4py
       run: python %PETSC4PY_DIR%\test\runtests.py --summary

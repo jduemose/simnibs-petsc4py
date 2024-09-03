@@ -256,6 +256,8 @@ jobs:
 
         python tools\windows_patch_petsc4py_pre_build.py %PETSC4PY_DIR%
 
+        echo COMMAND: pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
+
         pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
 
     - name: Fix petsc4py
@@ -263,11 +265,16 @@ jobs:
 
         set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
 
+        echo WHEEL DIR: %WHEEL_DIR%
+        echo PETSC4PY_DIR: %PETSC4PY_DIR%
+
         REM Show dependencies that needs to be vendored into the wheel
         delvewheel show %WHEEL_DIR%\%WHEEL_NAME%
 
         wheel unpack -d %WHEEL_DIR% %WHEEL_DIR%\%WHEEL_NAME%
         set UNPACK_DIR=%WHEEL_DIR%\petsc4py-%PETSC_VERSION%
+
+        echo UNPACK DIR: %UNPACK_DIR%
 
         REM Copy DLLs into wheel next to PETSc*.pyd
         set DLL_DIR=%UNPACK_DIR%\petsc4py\lib\%PETSC_ARCH%

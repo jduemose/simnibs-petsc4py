@@ -165,7 +165,17 @@ jobs:
     #   shell: bash --login -o igncr -eo pipefail '{0}'
     #   run: echo "hello from Bash" && uname -o
 
+    - name: set petsc_dir
+      run: |
+        echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION% >> %GITHUB_ENV%
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ env.PETSC_DIR }}
+        key: ${{ runner.os }}-petsc
+
     - name: Build PETSc
+      if: steps.cache-petsc.outputs.cache-hit != 'true'
       run: |
 
         call %SETVARS%
@@ -176,6 +186,12 @@ jobs:
         bash --login -o igncr -eo pipefail ^
           %cd%\tools\windows_build_petsc_with_cygwin.sh ^
           %PETSC_VERSION% %PETSC_ARCH%
+
+    - uses: actions/cache/save@v4
+      if: steps.cache-petsc.outputs.cache-hit != 'true'
+      with:
+        path: ${{ env.PETSC_DIR }}
+        key: ${{ runner.os }}-petsc
 
     - name: Install Python Dependencies
       run: |
@@ -196,7 +212,7 @@ jobs:
 
         REM replace cygwin paths with windows paths in `petscvariables` file
         REM the '' around PETSC_DIR are important to protect \ in path
-        bash --login -o igncr -eo pipefail %cd%\tools\windows_prepare_petscvariables.sh '%PETSC_DIR%'' %PETSC_ARCH%
+        bash --login -o igncr -eo pipefail %cd%\tools\windows_prepare_petscvariables.sh %PETSC_DIR% %PETSC_ARCH%
 
         REM Download petsc4py and build wheel
 
@@ -224,6 +240,8 @@ jobs:
         python tools\windows_patch_petsc4py_pre_build.py %PETSC4PY_DIR%
 
         pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
+
+
 
     - name: Fix petsc4py
       run: |

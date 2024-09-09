@@ -252,9 +252,8 @@ jobs:
         REM                r'C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\lib'],
         REM pip install --global-option="-LC:\\Program Files\ (x86)\Microsoft\ SDKs\\MPI\\Lib\\x64 -L" --build-option="-llibpetsc -lmsmpi -lHYPRE -lmkl_tbb_thread"
 
+        echo Patching petsc4py before build
         python tools\windows_patch_petsc4py_pre_build.py %PETSC4PY_DIR%
-
-        echo COMMAND: pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
 
         pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
 
@@ -266,15 +265,6 @@ jobs:
 
         set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
 
-        echo What is in wheel dir (%WHEEL_DIR%)
-        dir %WHEEL_DIR%
-        echo WHEEL DIR: %WHEEL_DIR%\somesubdir
-        echo WHEEL DIR: %WHEEL_DIR%\petsc4py-%PETSC_VERSION%
-        echo PETSC4PY_DIR: %PETSC4PY_DIR%
-
-        echo delvewheel show %WHEEL_DIR%\%WHEEL_NAME%
-        echo set UNPACK_DIR=%WHEEL_DIR%\petsc4py-%PETSC_VERSION%
-
         REM Show dependencies that needs to be vendored into the wheel
         delvewheel show %WHEEL_DIR%\%WHEEL_NAME%
 
@@ -283,16 +273,31 @@ jobs:
 
         echo UNPACK DIR: %UNPACK_DIR%
 
-        REM Copy DLLs into wheel next to PETSc*.pyd
+        echo Copy DLLs into wheel
+        REM next to PETSc*.pyd
         set DLL_DIR=%UNPACK_DIR%\petsc4py\lib\%PETSC_ARCH%
+
+        echo %DLL_DIR% BEFORE
+        dir %DLL_DIR%
+
         copy %PETSC_DIR%\%PETSC_ARCH%\lib\libpetsc.dll %DLL_DIR%
         copy %HYPRE_INSTALL_DIR%\bin\HYPRE.dll %DLL_DIR%
         copy C:\WINDOWS\system32\msmpi.dll %DLL_DIR%
         copy C:\WINDOWS\system32\msvcp140.dll %DLL_DIR%
 
+        echo %DLL_DIR% AFTER
+        dir %DLL_DIR%
+
         REM Append to file in order to discover MKL DLLs
-        REM type tools\windows_petsc4py_patch.py >> %UNPACK_DIR%\lib\__init__.py
+
+        echo BEFORE patch
+        more %UNPACK_DIR%\petsc4py\lib\__init__.py
+
+        echo Patching petsc4py after build
         python tools\windows_patch_petsc4py_post_build.py %UNPACK_DIR%
+
+        echo AFTER patch
+        more %UNPACK_DIR%\petsc4py\lib\__init__.py
 
         wheel pack -d %WHEEL_DIR% %UNPACK_DIR%
 
@@ -311,7 +316,14 @@ jobs:
   #   steps:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
-      # if: !startsWith(github.ref, 'refs/tags/')
+      if: ! startsWith(github.ref, 'refs/tags/')
       with:
         name: windows-wheels
         path: "${{ env.WHEEL_DIR }}/*.whl"
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          ${{ env.WHEEL_DIR }}/*.whl

@@ -237,9 +237,7 @@ jobs:
         tar -x -z -f petsc4py-%PETSC_VERSION%.tar.gz
 
         set PETSC4PY_DIR=%cd%\petsc4py-%PETSC_VERSION%
-        echo PETSC4PY_DIR=%PETSC4PY_DIR% >> %GITHUB_ENV%
         set WHEEL_DIR=%PETSC4PY_DIR%\wheelhouse
-        echo WHEEL_DIR=%WHEEL_DIR% >> %GITHUB_ENV%
 
         REM Flags from petscvariables are not read unless GCC was used so we
         REM need to set them manually
@@ -260,13 +258,22 @@ jobs:
 
         pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
 
+        echo PETSC4PY_DIR=%PETSC4PY_DIR% >> %GITHUB_ENV%
+        echo WHEEL_DIR=%WHEEL_DIR% >> %GITHUB_ENV%
+
     - name: Fix petsc4py
       run: |
 
         set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
 
-        echo WHEEL DIR: %WHEEL_DIR%
+        echo What is in wheel dir (%WHEEL_DIR%)
+        dir %WHEEL_DIR%
+        echo WHEEL DIR: %WHEEL_DIR%\somesubdir
+        echo WHEEL DIR: %WHEEL_DIR%\petsc4py-%PETSC_VERSION%
         echo PETSC4PY_DIR: %PETSC4PY_DIR%
+
+        echo delvewheel show %WHEEL_DIR%\%WHEEL_NAME%
+        echo set UNPACK_DIR=%WHEEL_DIR%\petsc4py-%PETSC_VERSION%
 
         REM Show dependencies that needs to be vendored into the wheel
         delvewheel show %WHEEL_DIR%\%WHEEL_NAME%

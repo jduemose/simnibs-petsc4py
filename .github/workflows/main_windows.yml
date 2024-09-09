@@ -74,10 +74,10 @@ jobs:
         echo Installing MSMPI SDK
         msmpisdk.msi /quiet /passive /qn /norestart
 
-        echo MSMPI_BIN="%ProgramFiles%\Microsoft MPI\Bin" >> %GITHUB_ENV%
-        echo MSMPI_INC="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include" >> %GITHUB_ENV%
-        echo MSMPI_LIB32="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86" >> %GITHUB_ENV%
-        echo MSMPI_LIB64="%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64" >> %GITHUB_ENV%
+        echo MSMPI_BIN=%ProgramFiles%\Microsoft MPI\Bin>> %GITHUB_ENV%
+        echo MSMPI_INC=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Include>> %GITHUB_ENV%
+        echo MSMPI_LIB32=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x86>> %GITHUB_ENV%
+        echo MSMPI_LIB64=%ProgramFiles(x86)%\Microsoft SDKs\MPI\Lib\x64>> %GITHUB_ENV%
 
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components
@@ -119,7 +119,7 @@ jobs:
         REM echo Check Intel compiler
         REM ifort /help
 
-        echo SETVARS=%SETVARS% >> %GITHUB_ENV%
+        echo SETVARS=%SETVARS%>> %GITHUB_ENV%
 
     - name: Build HYPRE
       run: |
@@ -149,7 +149,7 @@ jobs:
         REM The default installation path ("prefix") is in `src/hypre`.
         REM we now have /hypre-2.31.0/src/hypre
 
-        echo HYPRE_INSTALL_DIR="%GITHUB_WORKSPACE%\hypre-2.31.0\src\hypre" >> %GITHUB_ENV%
+        echo HYPRE_INSTALL_DIR=%GITHUB_WORKSPACE%\hypre-2.31.0\src\hypre>> %GITHUB_ENV%
 
     # https://github.com/cygwin/cygwin-install-action
     # cygwin stuff is *prepended* to path so just using 'bash' should pick up cygwin's bash whereas it is usually git bash
@@ -183,7 +183,7 @@ jobs:
 
     - name: set petsc_dir
       run: |
-        echo PETSC_DIR="C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%" >> %GITHUB_ENV%
+        echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%>> %GITHUB_ENV%
 
     - uses: actions/cache/restore@v4
       id: petsc-cache
@@ -198,7 +198,7 @@ jobs:
         call %SETVARS%
 
         REM we should have build script return this or pass it
-        echo PETSC_DIR="C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%" >> %GITHUB_ENV%
+        echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%>> %GITHUB_ENV%
 
         bash --login -o igncr -eo pipefail ^
           %cd%\tools\windows_build_petsc_with_cygwin.sh ^
@@ -258,8 +258,8 @@ jobs:
 
         pip wheel --no-deps --no-build-isolation -w %WHEEL_DIR% %PETSC4PY_DIR%
 
-        echo PETSC4PY_DIR="%PETSC4PY_DIR%" >> %GITHUB_ENV%
-        echo WHEEL_DIR="%WHEEL_DIR%" >> %GITHUB_ENV%
+        echo PETSC4PY_DIR=%PETSC4PY_DIR%>> %GITHUB_ENV%
+        echo WHEEL_DIR=%WHEEL_DIR%>> %GITHUB_ENV%
 
     - name: Fix petsc4py
       run: |

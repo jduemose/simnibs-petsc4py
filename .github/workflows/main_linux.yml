@@ -40,7 +40,7 @@ jobs:
       PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
       MKL_BASE_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd
 
-    if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') }}
+    if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') || !contains(github.event.head_commit.message, '[skip linux ci]') }}
 
     steps:
       # checkout repository
@@ -63,7 +63,7 @@ jobs:
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
         pip install cython 'numpy<2' setuptools mkl==${{ vars.MKL_VERSION }} mkl-service
-        pip install pytest
+        pip install pytest scipy
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
 
@@ -166,7 +166,7 @@ jobs:
         # add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
-    - name: Build wheel for petsc4py
+    - name: Build petsc4py
       run: |
 
         echo "Using PETSC_DIR   ${PETSC_DIR}"

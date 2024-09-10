@@ -44,6 +44,8 @@ jobs:
 
       MSMPI_BASE_URL: https://download.microsoft.com/download/A/E/0/AE002626-9D9D-448D-8197-1EA510E297CE
 
+    if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') || !contains(github.event.head_commit.message, '[skip windows ci]') }}
+
     steps:
     - name: set git stuff
       run: git config --global core.autocrlf input

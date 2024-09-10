@@ -235,7 +235,7 @@ jobs:
     #   run: pip install pytest
 
     - name: Running tests (from petsc4py)
-      run: python ${PETSC4PY_DIR}/test/runtests.py --summary
+      run: python ${PETSC4PY_DIR}/test/runtests.py --summary --no-builddir
 
     - name: Install test dependencies
       run: pip install pytest scipy
@@ -275,10 +275,3 @@ jobs:
     #   env:
     #     PASSWORD: ${{ secrets.PYPI_TOKEN }}
     #     PYTHON: /opt/python/cp38-cp38/bin/python
-
-    - name: Release
-    uses: softprops/action-gh-release@v2
-    if: startsWith(github.ref, 'refs/tags/')
-    with:
-      files: |
-        ${{ env.WHEEL_DIR }}/*.whl

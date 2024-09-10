@@ -237,7 +237,7 @@ jobs:
   #   needs: build
 
     - name: Running tests shipped with petsc4py
-      run: python ${PETSC4PY_DIR}/test/runtests.py --summary
+      run: python ${PETSC4PY_DIR}/test/runtests.py --summary --no-builddir
 
     - name: Running internal tests
       run: pytest tests

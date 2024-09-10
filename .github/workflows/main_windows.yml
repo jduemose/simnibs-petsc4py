@@ -222,16 +222,6 @@ jobs:
 
         REM if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-        dir c:\hostedtoolcache\windows\python\3.11.9\x64\lib\site-packages
-
-        echo WHERE WAS MKL INSTALLED?
-        more c:\hostedtoolcache\windows\python\3.11.9\x64\lib\site-packages\mkl-2024.2.0.dist-info\RECORD
-
-        dir c:\hostedtoolcache\windows\python\3.11.9\x64
-        dir c:\hostedtoolcache\windows\python\3.11.9\x64\Library
-        dir c:\hostedtoolcache\windows\python\3.11.9\x64\Library\bin
-
-
     - name: Build petsc4py
       run: |
 
@@ -274,6 +264,7 @@ jobs:
       run: |
 
         set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
+        echo WHEEL_NAME=%WHEEL_NAME%>> %GITHUB_ENV%
 
         REM Show dependencies that needs to be vendored into the wheel
         delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\%WHEEL_NAME%
@@ -285,32 +276,19 @@ jobs:
         REM next to PETSc*.pyd
         set DLL_DIR=%UNPACK_DIR%\petsc4py\lib\%PETSC_ARCH%
 
-        echo %DLL_DIR% BEFORE
-        dir %DLL_DIR%
-
         copy %PETSC_DIR%\%PETSC_ARCH%\lib\libpetsc.dll %DLL_DIR%
         copy %HYPRE_INSTALL_DIR%\bin\HYPRE.dll %DLL_DIR%
         copy C:\WINDOWS\system32\msmpi.dll %DLL_DIR%
         copy C:\WINDOWS\system32\msvcp140.dll %DLL_DIR%
 
-        echo %DLL_DIR% AFTER
-        dir %DLL_DIR%
-
         REM Append to file in order to discover MKL DLLs
-
-        echo BEFORE patch
-        more %UNPACK_DIR%\petsc4py\lib\__init__.py
 
         echo Patching petsc4py after build
         python tools\windows_patch_petsc4py_post_build.py %UNPACK_DIR%
 
-        echo AFTER patch
-        more %UNPACK_DIR%\petsc4py\lib\__init__.py
-
         wheel pack -d %WHEEL_DIR% %UNPACK_DIR%
 
         delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\%WHEEL_NAME%
-
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -323,7 +301,7 @@ jobs:
       run: pip install %WHEEL_DIR%\%WHEEL_NAME%
 
     - name: Running tests shipped with petsc4py
-      run: python %PETSC4PY_DIR%\test\runtests.py --summary
+      run: python %PETSC4PY_DIR%\test\runtests.py --summary --no-builddir
 
     - name: Running internal tests
       run: pytest tests

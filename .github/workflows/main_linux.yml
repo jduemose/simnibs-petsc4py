@@ -240,7 +240,7 @@ jobs:
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary --no-builddir
 
     - name: Running internal tests
-      run: pytest tests
+      run: pytest tests -v
 
   # publish:
   #   needs: build

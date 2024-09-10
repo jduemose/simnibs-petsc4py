@@ -62,7 +62,7 @@ print("Preparing KSP")
 # PC preparation
 a = time.perf_counter()
 ksp.setUp()
-print(f"Time to prepare KSP: {time.perf_counter() - a:.4f}")
+print(f"Time to prepare KSP: {time.perf_counter() - a:.4f} s")
 
 b = A.createVecLeft()
 x = A.createVecRight()
@@ -80,6 +80,5 @@ for thisrhs,s in zip(rhs, sol):
     # print(ksp.getResidualNorm())
 
     assert np.allclose(x[:], s)
-    # print(x[:] - s)
-    # print((x[:] - sol[i])/sol[i])
-print(f"total {time.perf_counter()-aa:.4f}")
+
+print(f"Total time: {time.perf_counter()-aa:.4f} s")

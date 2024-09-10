@@ -197,7 +197,7 @@ jobs:
 
         call %SETVARS%
 
-        REM we should have build script return this or pass it
+        REM we should have the build script return this or pass it...
         echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%>> %GITHUB_ENV%
 
         bash --login -o igncr -eo pipefail ^
@@ -290,13 +290,6 @@ jobs:
 
         delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\%WHEEL_NAME%
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
-      with:
-        name: windows-wheels
-        path: ${{ env.WHEEL_DIR }}/petsc4py*.whl
-
     - name: Install petsc4py
       run: pip install %WHEEL_DIR%\%WHEEL_NAME%
 
@@ -304,19 +297,27 @@ jobs:
       run: python %PETSC4PY_DIR%\test\runtests.py --summary --no-builddir
 
     - name: Running internal tests
-      run: pytest tests
+      run: pytest tests -v
 
   # publish:
   #   needs: build
 
   #   steps:
 
-    # Downloads to GITHUB_WORKSPACE by default
-    - uses: actions/download-artifact@v4
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
       with:
         name: windows-wheels
-    - name: Display stuff
-      run: dir
+        path: ${{ env.WHEEL_DIR }}/petsc4py*.whl
+
+    # Downloads to GITHUB_WORKSPACE by default
+    # - uses: actions/download-artifact@v4
+    #   with:
+    #     name: windows-wheels
+    # - name: Display stuff
+    #   run: dir
 
     - name: Release
       uses: softprops/action-gh-release@v2

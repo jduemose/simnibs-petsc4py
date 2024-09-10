@@ -1,12 +1,29 @@
 import sys
+import time
 
 import numpy as np
 import pytest
-import scipy.sparse
+import scipy as sp
 
 from petsc4py import PETSc
 
 """Based on example from https://tbetcke.github.io/hpc_lecture_notes/petsc_for_sparse_systems.html"""
+
+@pytest.fixture
+def stiffness_matrix():
+    S = sp.sparse.load_npz("data/system_matrix.npz")
+    A = PETSc.Mat(comm=PETSc.COMM_WORLD)
+    A.createAIJ(size=S.shape, csr=(S.indptr, S.indices, S.data))
+    A.assemble()
+    return A
+
+@pytest.fixture
+def rhs_vectors():
+    return np.load("data/system_rhs.npz")["arr_0"]
+
+@pytest.fixture
+def sol_vectors():
+    return np.load("data/system_sol.npz")["arr_0"]
 
 def build_A(n=1000):
     """Create empty matrix and fill."""
@@ -60,7 +77,7 @@ def build_A_from_csr_array(n=1000):
     row_ind = np.array(row_ind, dtype=np.int32)
     col_ind = np.array(col_ind, dtype=np.int32)
 
-    ss_arr = scipy.sparse.csr_array((data, (row_ind, col_ind)))
+    ss_arr = sp.sparse.csr_array((data, (row_ind, col_ind)))
 
     A = PETSc.Mat()
     A.createAIJ(size=ss_arr.shape, csr=(ss_arr.indptr, ss_arr.indices, ss_arr.data))
@@ -95,6 +112,14 @@ class TestKSP:
             ("hypre", None),
             pytest.param(
                 "lu",
+                "mkl_pardiso",
+                marks=pytest.mark.skipif(
+                    sys.platform == "darwin",
+                    reason="PETSc is not built with Intel MKL on macos."
+                ),
+            ),
+            pytest.param(
+                "cholesky",
                 "mkl_pardiso",
                 marks=pytest.mark.skipif(
                     sys.platform == "darwin",
@@ -152,6 +177,113 @@ class TestKSP:
         #assert np.isclose(0, ksp.getConvergenceHistory()[-1])
         np.testing.assert_allclose(b[:], b_hat[:])
 
+    @pytest.mark.parametrize(
+        ["ksp_type", "pc_type","factor_solver_type"],
+        [
+            #(PETSc.KSP.Type.CG, "none", None),
+            (PETSc.KSP.Type.CG, PETSc.PC.Type.HYPRE, None),
+            pytest.param(
+                PETSc.KSP.Type.PREONLY,
+                PETSc.PC.Type.LU,
+                PETSc.Mat.SolverType.MKL_PARDISO,
+                marks=pytest.mark.skipif(
+                    sys.platform == "darwin",
+                    reason="PETSc is not built with Intel MKL on macos."
+                ),
+            ),
+            pytest.param(
+                PETSc.KSP.Type.PREONLY,
+                PETSc.PC.Type.CHOLESKY,
+                PETSc.Mat.SolverType.MKL_PARDISO,
+                marks=pytest.mark.skipif(
+                    sys.platform == "darwin",
+                    reason="PETSc is not built with Intel MKL on macos."
+                ),
+            ),
+            pytest.param(
+                PETSc.KSP.Type.PREONLY,
+                PETSc.PC.Type.LU,
+                PETSc.Mat.SolverType.MUMPS,
+                marks=pytest.mark.skipif(
+                    sys.platform != "darwin",
+                    reason="PETSc only built with MUMPS on macos."
+                ),
+            ),
+            pytest.param(
+                PETSc.KSP.Type.PREONLY,
+                PETSc.PC.Type.CHOLESKY,
+                PETSc.Mat.SolverType.MUMPS,
+                marks=pytest.mark.skipif(
+                    sys.platform != "darwin",
+                    reason="PETSc only built with MUMPS on macos."
+                ),
+            ),
+        ]
+    )
+    def test_KSP_real(
+        self,
+        stiffness_matrix,
+        rhs_vectors,
+        sol_vectors,
+        ksp_type,
+        pc_type,
+        factor_solver_type,
+        rtol=1e-10,
+        ):
+        # ksp_type PREONLY uses only a single application of the preconditioner
+
+        A = stiffness_matrix
+
+        # Build KSP solver object
+        ksp = PETSc.KSP()
+        ksp.create(comm=A.getComm())
+        ksp.setOperators(A)
+        ksp.setTolerances(rtol=rtol)
+        ksp.setType(ksp_type)
+        ksp.setConvergenceHistory()
+
+        # setup PC
+        ksp.getPC().setType(pc_type)
+        if ksp.getPC().getType() == "hypre":
+            ksp.getPC().setHYPREType("boomeramg")
+
+            # This option cannot be set from the python interface directly
+            #-pc_hypre_boomeramg_coarsen_type HMIS
+            options = PETSc.Options()
+            options["pc_hypre_boomeramg_coarsen_type"] = "HMIS"
+            ksp.getPC().setFromOptions()
+
+        # setup factor solver
+        if factor_solver_type is not None:
+            ksp.getPC().setFactorSolverType(factor_solver_type)
+            # MUMPS: to explicitly set the permutation analysis tool to METIS
+            # ksp.getPC().getFactorMatrix().setMumpsIcntl(7, 5)
+
+        init_time = time.perf_counter()
+
+        print("Preparing KSP")
+        # PC preparation
+        start = time.perf_counter()
+        ksp.setUp()
+        print(f"Time to prepare KSP: {time.perf_counter() - start:.4f} s")
+
+        b = A.createVecLeft()
+        x = A.createVecRight()
+
+        for thisrhs,s in zip(rhs_vectors, sol_vectors):
+
+            b.array[:] = thisrhs
+
+            # solve
+            start = time.perf_counter()
+            ksp.solve(b, x)
+            print(f"Time to solve: {time.perf_counter()-start:.4f} s")
+
+            # print(ksp.getResidualNorm())
+
+            assert np.allclose(x[:], s)
+
+        print(f"Total time: {time.perf_counter()-init_time:.4f} s")
 
 
 # def blbla:

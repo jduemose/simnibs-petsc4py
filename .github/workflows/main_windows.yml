@@ -273,12 +273,12 @@ jobs:
     - name: Fix petsc4py
       run: |
 
-        # set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
+        set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
 
         REM Show dependencies that needs to be vendored into the wheel
-        delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\petsc4py*.whl
+        delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\%WHEEL_NAME%
 
-        wheel unpack -d %WHEEL_DIR% %WHEEL_DIR%\petsc4py*.whl
+        wheel unpack -d %WHEEL_DIR% %WHEEL_DIR%\%WHEEL_NAME%
         set UNPACK_DIR=%WHEEL_DIR%\petsc4py-%PETSC_VERSION%
 
         echo Copy DLLs into wheel
@@ -309,7 +309,7 @@ jobs:
 
         wheel pack -d %WHEEL_DIR% %UNPACK_DIR%
 
-        delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\petsc4py*.whl
+        delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\%WHEEL_NAME%
 
 
     - name: Upload artifact
@@ -320,7 +320,7 @@ jobs:
         path: ${{ env.WHEEL_DIR }}/petsc4py*.whl
 
     - name: Install petsc4py
-      run: pip install %WHEEL_DIR%\petsc4py*.whl
+      run: pip install %WHEEL_DIR%\%WHEEL_NAME%
 
     - name: Running tests shipped with petsc4py
       run: python %PETSC4PY_DIR%\test\runtests.py --summary

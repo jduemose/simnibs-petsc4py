@@ -248,7 +248,7 @@ jobs:
   #   steps:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
-      # if: !startsWith(github.ref, 'refs/tags/')
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       with:
         name: linux-wheels
         path: "${{ env.WHEEL_DIR }}/*${{ vars.MANYLINUX_PLATFORM }}.whl"

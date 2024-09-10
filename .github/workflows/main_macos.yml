@@ -60,8 +60,7 @@ jobs:
 
     - name: Prepare
       # make is installed as gmake
-      run: brew install make
-    # run: mkdir ${{ env.LIB_DIR }}
+      run: brew upgrade && brew install gfortran make && brew cleanup
 
     - name: Retrieve PETSc from cache
       id: cache-petsc
@@ -97,6 +96,7 @@ jobs:
         --COPTFLAGS=${PETSC_FLAGS} \
         --CXXOPTFLAGS=${PETSC_FLAGS} \
         --FOPTFLAGS=${PETSC_FLAGS} \
+        --with-fortran-bindings=0 \
         --with-debugging=0 \
         --with-make-exec=gmake \
         --with-mpi=1 --download-mpich \
@@ -104,7 +104,6 @@ jobs:
         --download-mumps --download-scalapack --download-metis \
         --with-shared-library=1
 
-        # --with-fortran-bindings=0 \
         make all
         make check
 

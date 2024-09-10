@@ -2,16 +2,11 @@ name: Linux - Build, Test, and Upload
 
 on:
   push:
-    # branches: [ main ]
+    branches: [ main ]
     tags:
       - v*
-  # pull_request:
-  #   branches: [ main ]
-
-# defaults:
-#   run:
-#     shell: bash
-#     working-directory: ./scripts
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
@@ -41,7 +36,7 @@ jobs:
 
       USE_PYTHON_VERSION: cp311
 
-      MPICH_BASE_UR: https://www.mpich.org/static/downloads
+      MPICH_BASE_URL: https://www.mpich.org/static/downloads
       PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
       MKL_BASE_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd
 
@@ -57,17 +52,6 @@ jobs:
       run: |
 
         mkdir ${{ env.LIB_DIR }}
-
-        # ugly but for testing
-        # echo "Adding python to GITHUB_PATH"
-        # PYTHON_VERSION=cp311
-        # export PATH=/opt/python/cp311-cp311/bin:$PATH
-
-
-        # export PATH=/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin:$PATH
-        # echo "PYTHON_PATH=/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin" >> $GITHUB_ENV
-
-        # GITHUB_PATH does not seem to have any effect inside a container!
 
         # Add python to the path
         echo "/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin" >> $GITHUB_PATH
@@ -108,7 +92,7 @@ jobs:
 
         MPICH_NAME=mpich-${{ vars.MPICH_VERSION }}
         MPICH_TAR=${MPICH_NAME}.tar.gz
-        MPICH_URL=https://www.mpich.org/static/downloads/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
+        MPICH_URL=$MPICH_BASE_URL/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
         MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
         MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
         MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install
@@ -141,7 +125,6 @@ jobs:
 
         echo "MPICH_INSTALL_DIR=${MPICH_INSTALL_DIR}" >> $GITHUB_ENV
         # echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-
 
     - name: Build PETSc
       run: |
@@ -251,26 +234,10 @@ jobs:
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       with:
         name: linux-wheels
-        path: "${{ env.WHEEL_DIR }}/*${{ vars.MANYLINUX_PLATFORM }}.whl"
+        path: ${{ env.WHEEL_DIR }}/*.whl
 
-    # - name: Release
-    #   uses: softprops/action-gh-release@v2
-    #   if: startsWith(github.ref, 'refs/tags/')
-    #   with:
-    #     files: wheelhouse/*.whl
-
-        # body_path: CHANGELOG.md
-        # repository: my_gh_org/my_gh_repo
-        # # note you'll typically need to create a personal access token
-        # # with permissions to create releases in the other repo
-        # token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-
-
-    # - name: Upload to PyPI
-    #   if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
-    #   run: |
-    #     $PYTHON -m pip install twine
-    #     $PYTHON -m twine upload wheelhouse/*.whl -u __token__ -p "$PASSWORD"
-    #   env:
-    #     PASSWORD: ${{ secrets.PYPI_TOKEN }}
-    #     PYTHON: /opt/python/cp38-cp38/bin/python
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: ${{ env.WHEEL_DIR }}/*.whl

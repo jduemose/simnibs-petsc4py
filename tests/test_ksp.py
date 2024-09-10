@@ -104,13 +104,13 @@ class TestMat:
         assert np.all(diagonals == 2)
 
 class TestKSP:
-    @pytest.mark.parametrize("ksp_type", ["cg"])
     @pytest.mark.parametrize(
-        ["pc_type","factor_solver_type"],
+        ["ksp_type", "pc_type","factor_solver_type"],
         [
-            ("none", None),
-            ("hypre", None),
+            ("cg", "none", None),
+            ("cg", "hypre", None),
             pytest.param(
+                "preonly",
                 "lu",
                 "mkl_pardiso",
                 marks=pytest.mark.skipif(
@@ -119,6 +119,7 @@ class TestKSP:
                 ),
             ),
             pytest.param(
+                "preonly",
                 "cholesky",
                 "mkl_pardiso",
                 marks=pytest.mark.skipif(
@@ -127,6 +128,7 @@ class TestKSP:
                 ),
             ),
             pytest.param(
+                "preonly",
                 "lu",
                 "mumps",
                 marks=pytest.mark.skipif(
@@ -135,6 +137,7 @@ class TestKSP:
                 ),
             ),
             pytest.param(
+                "preonly",
                 "cholesky",
                 "mumps",
                 marks=pytest.mark.skipif(
@@ -191,15 +194,15 @@ class TestKSP:
                     reason="PETSc is not built with Intel MKL on macos."
                 ),
             ),
-            pytest.param(
-                PETSc.KSP.Type.PREONLY,
-                PETSc.PC.Type.CHOLESKY,
-                PETSc.Mat.SolverType.MKL_PARDISO,
-                marks=pytest.mark.skipif(
-                    sys.platform == "darwin",
-                    reason="PETSc is not built with Intel MKL on macos."
-                ),
-            ),
+            # pytest.param(
+            #     PETSc.KSP.Type.PREONLY,
+            #     PETSc.PC.Type.CHOLESKY,
+            #     PETSc.Mat.SolverType.MKL_PARDISO,
+            #     marks=pytest.mark.skipif(
+            #         sys.platform == "darwin",
+            #         reason="PETSc is not built with Intel MKL on macos."
+            #     ),
+            # ),
             pytest.param(
                 PETSc.KSP.Type.PREONLY,
                 PETSc.PC.Type.LU,
@@ -280,67 +283,6 @@ class TestKSP:
             print(f"Time to solve: {time.perf_counter()-start:.4f} s")
 
             # print(ksp.getResidualNorm())
-
             assert np.allclose(x[:], s)
 
         print(f"Total time: {time.perf_counter()-init_time:.4f} s")
-
-
-# def blbla:
-
-#     ksp = PETSc.KSP().create()
-#     ksp.setOperators(A)
-#     b = A.createVecLeft()
-#     b.array[:] = 1
-
-#     x = A.createVecRight()
-
-#     # no PC
-#     ksp = PETSc.KSP().create()
-#     ksp.setOperators(A)
-#     ksp.setTolerances(rtol=1e-10)
-#     ksp.setType('cg')
-#     ksp.setConvergenceHistory()
-#     ksp.getPC().setType('none')
-#     ksp(b, x)
-
-#     b_hat = A.createVecLeft()
-#     A.mult(x, b_hat)
-
-#     # print(ksp.getConvergenceHistory()[-1])
-
-#     #assert np.isclose(0, ksp.getConvergenceHistory()[-1])
-#     np.testing.assert_allclose(b[:], b_hat[:])
-
-#     # HYPRE
-#     ksp = PETSc.KSP().create()
-#     ksp.setOperators(A)
-#     ksp.setTolerances(rtol=1e-10)
-#     ksp.setType('cg')
-#     ksp.setConvergenceHistory()
-#     ksp.getPC().setType('hypre')
-#     ksp(b, x)
-
-#     b_hat = A.createVecLeft()
-#     A.mult(x, b_hat)
-
-#     # print(ksp.getConvergenceHistory()[-1])
-#     #assert np.isclose(0, ksp.getConvergenceHistory()[-1])
-#     np.testing.assert_allclose(b[:], b_hat[:])
-
-#     # MKL PARDISO
-#     ksp = PETSc.KSP().create()
-#     ksp.setOperators(A)
-#     ksp.setTolerances(rtol=1e-10)
-#     ksp.setType('cg')
-#     ksp.setConvergenceHistory()
-#     ksp.getPC().setType('lu')
-#     ksp.getPC().setFactorSolverType("mkl_pardiso")
-#     ksp(b, x)
-
-#     b_hat = A.createVecLeft()
-#     A.mult(x, b_hat)
-
-#     # print(ksp.getConvergenceHistory()[-1])
-#     #assert np.isclose(0, ksp.getConvergenceHistory()[-1])
-#     np.testing.assert_allclose(b[:], b_hat[:])

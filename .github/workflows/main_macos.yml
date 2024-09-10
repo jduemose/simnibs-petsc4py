@@ -2,20 +2,11 @@ name: MacOS - Build, Test, and Upload
 
 on:
   push:
-    # branches: [ main ]
+    branches: [ main ]
     tags:
       - v*
-  # pull_request:
-  #   branches: [ main ]
-
-# defaults:
-#   run:
-#     shell: bash
-#     working-directory: ./scripts
-
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
@@ -25,7 +16,6 @@ jobs:
       fail-fast: true
       matrix:
         python-version: ["3.11"]
-
 
     env:
       # package versions are set in github actions variables:
@@ -87,7 +77,7 @@ jobs:
         key: ${{ runner.os }}-petsc
 
     - name: Build PETSc
-      if: steps.cache-petsc.outputs.cache-hit != 'true'
+      if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
         # PETSC
@@ -115,11 +105,6 @@ jobs:
         --download-mumps --download-scalapack --download-metis \
         --with-shared-library=1
 
-        # mumps seems to be statically compiled even with shared-library=1
-
-        # from homebrew...
-        # --with-x=0 \
-
         make all
         make check
 
@@ -130,7 +115,7 @@ jobs:
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
     - uses: actions/cache/save@v4
-      if: steps.cache-petsc.outputs.cache-hit != 'true'
+      if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
@@ -145,15 +130,10 @@ jobs:
 
         # otools -L /path/to/.dylib
 
-        # petsc4py reads configuration etc. from
-        # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
-
-        MAJOR_MAC_VERSION=$(sw_vers -productVersion | cut -d '.' -f 1,2)
-        echo "major mac version ${MAJOR_MAC_VERSION}"
-        echo "MAJOR_MAC_VERSION=${MAJOR_MAC_VERSION}" >> $GITHUB_ENV
-
-        echo which python before?
-        which python
+        # This gives major AND minor, e.g. 14.5 or whatever
+        # MAJOR_MAC_VERSION=$(sw_vers -productVersion | cut -d '.' -f 1,2)
+        # echo "major mac version ${MAJOR_MAC_VERSION}"
+        # echo "MAJOR_MAC_VERSION=${MAJOR_MAC_VERSION}" >> $GITHUB_ENV
 
         # build wheel using cibuildwheel
         # as of now, we don't really use any features of cibw so it is a bit
@@ -168,9 +148,6 @@ jobs:
         # is supported on arm64 machines. However, currently we build on 14.0
         # so I set this manually for now.
         python -m cibuildwheel --output-dir ${WHEEL_DIR} ${PETSC4PY_DIR}
-
-        echo which python after?
-        which python
 
         # petsc4py-3.21.3-cp311-cp311-macosx-14_0_arm64.whl
         WHEEL_FILENAME=${WHEEL_DIR}/*.whl

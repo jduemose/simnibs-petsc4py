@@ -79,6 +79,10 @@ jobs:
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
+        echo Is gfortran is path?
+        which gfortran
+        which gfortran-14
+
         # PETSC
         PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
         PETSC_TAR=${PETSC_NAME}.tar.gz
@@ -96,6 +100,7 @@ jobs:
         --COPTFLAGS=${PETSC_FLAGS} \
         --CXXOPTFLAGS=${PETSC_FLAGS} \
         --FOPTFLAGS=${PETSC_FLAGS} \
+        --with-fc=gfortran \
         --with-fortran-bindings=0 \
         --with-debugging=0 \
         --with-make-exec=gmake \

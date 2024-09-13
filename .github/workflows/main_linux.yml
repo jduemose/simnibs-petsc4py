@@ -20,7 +20,11 @@ jobs:
     env:
       # package versions are set in github actions variables:
       #   settings - secrets and variables - actions - variables
-      PETSC_ARCH: arch-linux-c-opt-mkl
+      PETSC_ARCH: arch-linux-c-opt
+      PETSC_VERSION: ${{ vars.PETSC_VERSION }}
+
+      MKL_VERSION: ${{ vars.MKL_VERSION }}
+      MPICH_VERSION: ${{ vars.MPICH_VERSION }}
 
       # Compile flags (C/CXX/F)
       # -------------
@@ -51,10 +55,10 @@ jobs:
     - name: Prepare
       run: |
 
-        mkdir ${{ env.LIB_DIR }}
+        mkdir ${LIB_DIR}
 
         # Add python to the path
-        echo "/opt/python/${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}/bin" >> $GITHUB_PATH
+        echo "/opt/python/${USE_PYTHON_VERSION}-${USE_PYTHON_VERSION}/bin" >> $GITHUB_PATH
 
     - name: Install Python Dependencies
       run: |
@@ -62,7 +66,7 @@ jobs:
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
-        pip install cython 'numpy<2' setuptools mkl==${{ vars.MKL_VERSION }} mkl-service
+        pip install cython 'numpy<2' setuptools mkl==${MKL_VERSION} mkl-service
         pip install pytest scipy
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
@@ -70,7 +74,7 @@ jobs:
     - name: Install oneAPI MKL
       run: |
 
-        MKL_NAME=l_onemkl_p_${{ vars.MKL_VERSION }}.664
+        MKL_NAME=l_onemkl_p_${MKL_VERSION}.664
         ONEAPI_DIR=${{ env.LIB_DIR }}/oneAPI
 
         # Download install script
@@ -90,20 +94,20 @@ jobs:
     - name: Build MPICH
       run: |
 
-        MPICH_NAME=mpich-${{ vars.MPICH_VERSION }}
+        MPICH_NAME=mpich-${MPICH_VERSION}
         MPICH_TAR=${MPICH_NAME}.tar.gz
-        MPICH_URL=$MPICH_BASE_URL/${{ vars.MPICH_VERSION }}/${MPICH_TAR}
-        MPICH_ROOT_DIR=${{ env.LIB_DIR }}/${MPICH_NAME}
+        MPICH_URL=$MPICH_BASE_URL/${MPICH_VERSION}/${MPICH_TAR}
+        MPICH_ROOT_DIR=${LIB_DIR}/${MPICH_NAME}
         MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
         MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install
 
-        curl -O -L ${MPICH_URL}
-        tar -xzf ${MPICH_TAR} -C ${{ env.LIB_DIR }}
+        curl -O -L $MPICH_URL
+        tar -xzf $MPICH_TAR -C $LIB_DIR
 
-        mkdir ${MPICH_BUILD_DIR}
-        mkdir ${MPICH_INSTALL_DIR}
+        mkdir $MPICH_BUILD_DIR
+        mkdir $MPICH_INSTALL_DIR
 
-        cd ${MPICH_BUILD_DIR}
+        cd $MPICH_BUILD_DIR
 
         # enable-fast=all/yes sets O2,ndebug,alwaysinline
 
@@ -130,7 +134,7 @@ jobs:
       run: |
 
         # PETSC
-        PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
+        PETSC_NAME=petsc-${PETSC_VERSION}
         PETSC_TAR=${PETSC_NAME}.tar.gz
         PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
         PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
@@ -188,7 +192,7 @@ jobs:
           -w ${WHEEL_DIR} ${WHEEL_DIR}/*.whl
 
         # Filename of the fixed wheel
-        PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"
+        PACKAGE_TAG="petsc4py-${PETSC_VERSION}"
         PYTHON_ABI_TAG="${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}"
         WHEEL_FILENAME=${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_ABI_TAG}-${AUDITWHEEL_PLAT}.whl
 

@@ -60,7 +60,7 @@ jobs:
 
     - name: Prepare
       # make is installed as gmake
-      run: brew upgrade && brew install gfortran make && brew cleanup
+      run: brew upgrade && brew install make && brew cleanup
 
     - name: Retrieve PETSc from cache
       id: cache-petsc
@@ -79,15 +79,6 @@ jobs:
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
-        echo Is gfortran in path
-
-        ls -lh /opt/homebrew/bin
-
-        which gmake
-
-        #which gfortran
-        #which gfortran-14
-
         # PETSC
         PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}
         PETSC_TAR=${PETSC_NAME}.tar.gz
@@ -105,7 +96,7 @@ jobs:
         --COPTFLAGS=${PETSC_FLAGS} \
         --CXXOPTFLAGS=${PETSC_FLAGS} \
         --FOPTFLAGS=${PETSC_FLAGS} \
-        --with-fc=gfortran \
+        --with-fc=gfortran-14 \
         --with-fortran-bindings=0 \
         --with-debugging=0 \
         --with-make-exec=gmake \
@@ -114,8 +105,8 @@ jobs:
         --download-mumps --download-scalapack --download-metis \
         --with-shared-library=1
 
-        make all
-        make check
+        gmake all
+        gmake check
 
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV

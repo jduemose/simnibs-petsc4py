@@ -79,9 +79,14 @@ jobs:
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
-        echo Is gfortran is path?
-        which gfortran
-        which gfortran-14
+        echo Is gfortran in path
+
+        ls -lh /opt/homebrew/bin
+
+        which gmake
+
+        #which gfortran
+        #which gfortran-14
 
         # PETSC
         PETSC_NAME=petsc-${{ vars.PETSC_VERSION }}

@@ -173,6 +173,7 @@ jobs:
 
     - name: Set PETSc variables
       run: |
+
         echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%>> %GITHUB_ENV%
 
     - name: Restore PETSc (cache)
@@ -257,7 +258,7 @@ jobs:
     - name: Fix petsc4py
       run: |
 
-        set WHEEL_NAME=petsc4py-3.21.3-cp311-cp311-win_amd64.whl
+        set WHEEL_NAME=petsc4py-%PETSC_VERSION%-cp311-cp311-win_amd64.whl
         echo WHEEL_NAME=%WHEEL_NAME%>> %GITHUB_ENV%
 
         REM Show dependencies that needs to be vendored into the wheel

@@ -151,7 +151,7 @@ jobs:
         PETSC_TAR=${PETSC_NAME}.tar.gz
         PETSC_DIR=${LIB_DIR}/${PETSC_NAME}
 
-        echo "PETSC_TAR=${PETSCTAR}" >> $GITHUB_ENV
+        echo "PETSC_TAR=${PETSC_TAR}" >> $GITHUB_ENV
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
 

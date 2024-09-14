@@ -1,18 +1,22 @@
 # PETSc4py with Precompiled PETSc Libraries
 
-Overview of what dependecies PETSc is built with on different platforms.
+This repository provides [petsc4py](https://petsc.org/main/petsc4py/reference/petsc4py.html) wheels with precompiled libraries. Wheels are available for Windows, Linux, and (ARM64) MacOS. Below is an overview over what components PETSc is built with on different platforms.
 
-| OS    | Arch  | BLAS/LAPACK       | MKL PARDISO | HYPRE | MUMPS |
-|:------|:----- |:----------------- |:-----------:|:-----:|:-----:|
-|Linux  | x64   | MKL               | x           | x     |       |
-|Macos  | arm64 | Apple Accelerate  |             | x     | x     |
-|Windows| x64   | MKL               | x           | x     |       |
+
+|               | Linux      | MacOS     | Windows   |
+|:--------------|:----------:|:---------:|:---------:|
+| Architecture  | x64        | arm64     | x64       |
+| BLAS/LAPACK   | MKL        | Apple Accelerate | MKL |
+| MPI           | MPICH      | MPICH     | MS-MPI    |
+| HYPRE         | x          | x         | x         |
+| MKL PARDISO   | x          |           | x         |
+| MUMPS         |            | x         |           |
 
 
 ## TODOs
 
 - General clean-up of workflows. Some things are hardcoded.
-- Compile HYPRE against MKL BLAS (linux, windows)?
+- Compile HYPRE against MKL BLAS on linux, windows?
 
 ### Windows
 - Read compiler arguments from petscvariables (at the moment, they are hardcoded!).

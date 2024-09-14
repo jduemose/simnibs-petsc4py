@@ -283,7 +283,7 @@ jobs:
     - name: Setup python
       run: echo "/opt/python/${PYTHON_VERSION_STR}-${PYTHON_VERSION_STR}/bin" >> $GITHUB_PATH
     - name: Install python packages
-      run: pip install mkl==$MKL_VERSION numpy==1.26 pytest scipy petsc4py*.whl
+      run: pip install mkl==${{ vars.MKL_VERSION}} numpy==1.26 pytest scipy petsc4py*.whl
     - name: Running tests
       run: pytest tests -v
 

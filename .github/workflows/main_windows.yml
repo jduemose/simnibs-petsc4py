@@ -210,7 +210,7 @@ jobs:
         REM We do this to avoid building against numpy 2 as the numpy version is
         REM not specified in petsc4py's requires section
 
-        pip install cython delvewheel numpy==1.26 setuptools wheel
+        pip install cython delvewheel mkl==${{ vars.MKL_VERSION }} numpy==1.26 wheel
 
     # - name: Set variables
     #   shell: powershell

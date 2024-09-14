@@ -63,16 +63,19 @@ jobs:
       # make is installed as gmake
       run: brew upgrade && brew install make && brew cleanup
 
-    - name: Retrieve PETSc from cache
-      id: cache-petsc
+    - name: Set PETSc variables
       run: |
-        PETSC_NAME=petsc-$PETSC_VERSION
+        PETSC_NAME=petsc-${PETSC_VERSION}
+        PETSC_TAR=${PETSC_NAME}.tar.gz
         PETSC_DIR=${LIB_DIR}/${PETSC_NAME}
 
+        echo "PETSC_TAR=${PETSCTAR}" >> $GITHUB_ENV
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
 
-    - uses: actions/cache/restore@v4
+    - name: Restore PETSc (cache)
+      uses: actions/cache/restore@v4
+      id: cache-petsc
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
@@ -80,10 +83,6 @@ jobs:
     - name: Build PETSc
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
-
-        PETSC_NAME=petsc-$PETSC_VERSION
-        PETSC_TAR=${PETSC_NAME}.tar.gz
-        PETSC_DIR=${LIB_DIR}/${PETSC_NAME}
 
         curl -O -L ${PETSC_BASE_URL}/${PETSC_TAR}
         tar -xzf ${PETSC_TAR} -C ${LIB_DIR}
@@ -106,10 +105,8 @@ jobs:
         gmake all
         gmake check
 
-        echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
-        echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
-
-    - uses: actions/cache/save@v4
+    - name: Save PETSc (cache)
+      uses: actions/cache/save@v4
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       with:
         path: ${{ env.PETSC_DIR }}

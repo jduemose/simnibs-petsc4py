@@ -79,7 +79,8 @@ jobs:
     # as we only need a subset of the components
     # https://github.com/oneapi-src/oneapi-ci/blob/master/.github/workflows/build_all.yml
 
-    - uses: actions/cache/restore@v4
+    - name: Restore OneAPI (cache)
+      uses: actions/cache/restore@v4
       id: oneapi-cache
       with:
         path: C:\Program Files (x86)\Intel\oneAPI
@@ -93,7 +94,8 @@ jobs:
       if: steps.oneapi-cache.outputs.cache-hit != 'true'
       run: tools\windows_oneapi_install.bat %INTEL_HPCKIT_URL% %INTEL_HPCKIT_COMPONENTS%
 
-    - uses: actions/cache/save@v4
+    - name: Save OneAPI (cache)
+      uses: actions/cache/save@v4
       if: steps.oneapi-cache.outputs.cache-hit != 'true'
       with:
         path: C:\Program Files (x86)\Intel\oneAPI
@@ -169,18 +171,19 @@ jobs:
     #   shell: bash --login -o igncr -eo pipefail '{0}'
     #   run: echo "hello from Bash" && uname -o
 
-    - name: set petsc_dir
+    - name: Set PETSc variables
       run: |
         echo PETSC_DIR=C:\cygwin\home\%USERNAME%\petsc-%PETSC_VERSION%>> %GITHUB_ENV%
 
-    - uses: actions/cache/restore@v4
-      id: petsc-cache
+    - name: Restore PETSc (cache)
+      uses: actions/cache/restore@v4
+      id: cache-petsc
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
     - name: Build PETSc
-      if: steps.petsc-cache.outputs.cache-hit != 'true'
+      if: steps.cache-petsc.outputs.cache-hit != 'true'
       run: |
 
         call %SETVARS%
@@ -192,8 +195,9 @@ jobs:
           %cd%\tools\windows_build_petsc_with_cygwin.sh ^
           %PETSC_VERSION% %PETSC_ARCH%
 
-    - uses: actions/cache/save@v4
-      if: steps.petsc-cache.outputs.cache-hit != 'true'
+    - name: Save PETSc (cache)
+      uses: actions/cache/save@v4
+      if: steps.cache-petsc.outputs.cache-hit != 'true'
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
@@ -207,19 +211,19 @@ jobs:
 
         pip install cython delvewheel numpy==1.26 setuptools wheel
 
-    - name: Set variables
-      shell: powershell
-      run: |
+    # - name: Set variables
+    #   shell: powershell
+    #   run: |
 
-        # cpython version string representation, e.g., 3.11 -> cp311
-        $pythonVersionStr = python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')"
-        echo $pythonVersionStr
+    #     # cpython version string representation, e.g., 3.11 -> cp311
+    #     $pythonVersionStr = python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')"
+    #     echo $pythonVersionStr
 
-        $CLArgs = python tools\windows_extract_args_from_petscvariables.py $PETSC_DIR\$PETSC_ARCH\lib\petsc\conf\petscvariables CC_FLAGS
-        echo $CLArgs
+    #     $CLArgs = python tools\windows_extract_args_from_petscvariables.py $PETSC_DIR\$PETSC_ARCH\lib\petsc\conf\petscvariables CC_FLAGS
+    #     echo $CLArgs
 
-        echo "pythonVersionStr=$pythonVersionStr" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-        echo "CL=$CLArgs" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+    #     echo "pythonVersionStr=$pythonVersionStr" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+    #     echo "CL=$CLArgs" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Build petsc4py
       run: |

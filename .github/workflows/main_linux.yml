@@ -70,7 +70,7 @@ jobs:
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's "requires" section
-        pip install cython 'numpy<2' setuptools
+        pip install cython mkl==$MKL_VERSION 'numpy<2' setuptools
 
     - name: Install oneAPI MKL
       run: |
@@ -88,18 +88,31 @@ jobs:
         # expose the ones we need
         echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
 
-    - name: Build MPICH
+    - name: Set MPICH variables
       run: |
 
         MPICH_NAME=mpich-${MPICH_VERSION}
-        MPICH_TAR=${MPICH_NAME}.tar.gz
-        MPICH_URL=$MPICH_BASE_URL/${MPICH_VERSION}/${MPICH_TAR}
-        MPICH_ROOT_DIR=${LIB_DIR}/${MPICH_NAME}
-        MPICH_BUILD_DIR=${MPICH_ROOT_DIR}/build
-        MPICH_INSTALL_DIR=${MPICH_ROOT_DIR}/install
+        MPICH_BUILD_DIR=${LIB_DIR}/${MPICH_NAME}/build
+        MPICH_INSTALL_DIR=${LIB_DIR}/${MPICH_NAME}/install
 
-        curl -O -L $MPICH_URL
-        tar -xzf $MPICH_TAR -C $LIB_DIR
+        echo "MPICH_NAME=${MPICH_NAME}" >> $GITHUB_ENV
+        echo "MPICH_BUILD_DIR=${MPICH_BUILD_DIR}" >> $GITHUB_ENV
+        echo "MPICH_INSTALL_DIR=${MPICH_INSTALL_DIR}" >> $GITHUB_ENV
+        # echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+    - name: Restore MPICH (cache)
+      uses: actions/cache/restore@v4
+      id: cache-mpich
+      with:
+        path: ${{ env.MPICH_INSTALL_DIR }}
+        key: ${{ runner.os }}-mpich
+
+    - name: Build MPICH
+      if: ${{ steps.cache-mpich.outputs.cache-hit != 'true' }}
+      run: |
+
+        curl -O -L $MPICH_BASE_URL/${MPICH_VERSION}/${MPICH_NAME}.tar.gz
+        tar -xzf ${MPICH_NAME}.tar.gz -C $LIB_DIR
 
         mkdir $MPICH_BUILD_DIR
         mkdir $MPICH_INSTALL_DIR
@@ -124,16 +137,34 @@ jobs:
         make
         make install
 
-        echo "MPICH_INSTALL_DIR=${MPICH_INSTALL_DIR}" >> $GITHUB_ENV
-        # echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+    - name: Save MPICH (cache)
+      uses: actions/cache/save@v4
+      if: ${{ steps.cache-mpich.outputs.cache-hit != 'true' }}
+      with:
+        path: ${{ env.MPICH_INSTALL_DIR }}
+        key: ${{ runner.os }}-mpich
 
-    - name: Build PETSc
+    - name: Set PETSc variables
       run: |
 
-        # PETSC
         PETSC_NAME=petsc-${PETSC_VERSION}
         PETSC_TAR=${PETSC_NAME}.tar.gz
         PETSC_DIR=${LIB_DIR}/${PETSC_NAME}
+
+        echo "PETSC_TAR=${PETSCTAR}" >> $GITHUB_ENV
+        echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
+        echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
+
+    - name: Restore PETSc (cache)
+      uses: actions/cache/restore@v4
+      id: cache-petsc
+      with:
+        path: ${{ env.PETSC_DIR }}
+        key: ${{ runner.os }}-petsc
+
+    - name: Build PETSc
+      if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
+      run: |
 
         curl -O -L ${PETSC_BASE_URL}/${PETSC_TAR}
         tar -xzf ${PETSC_TAR} -C ${LIB_DIR}
@@ -158,11 +189,15 @@ jobs:
         make all
         make check
 
-        echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
-        echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
-
         # add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+    - name: Save PETSc (cache)
+      uses: actions/cache/save@v4
+      if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
+      with:
+        path: ${{ env.PETSC_DIR }}
+        key: ${{ runner.os }}-petsc
 
     - name: Build petsc4py
       run: |

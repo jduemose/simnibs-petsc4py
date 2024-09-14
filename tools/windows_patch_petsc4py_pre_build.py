@@ -1,3 +1,8 @@
+"""
+
+Patch setup.cfg to find msmpi library.
+
+"""
 from pathlib import Path
 import sys
 

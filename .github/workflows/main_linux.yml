@@ -22,7 +22,6 @@ jobs:
       #   settings - secrets and variables - actions - variables
       PETSC_ARCH: arch-linux-c-opt
       PETSC_VERSION: ${{ vars.PETSC_VERSION }}
-
       MKL_VERSION: ${{ vars.MKL_VERSION }}
       MPICH_VERSION: ${{ vars.MPICH_VERSION }}
 
@@ -38,11 +37,17 @@ jobs:
       # store libraries in here
       LIB_DIR: /custom_libs
 
-      USE_PYTHON_VERSION: cp311
+      PYTHON_VERSION_STR: cp311
 
       MPICH_BASE_URL: https://www.mpich.org/static/downloads
-      PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
+      PETSC_BASE_URL: ${{ vars.PETSC_BASE_URL }}
       MKL_BASE_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd
+
+      # Perhaps use these instead to be consistent with windows
+      # INTEL_BASEKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/e6ff8e9c-ee28-47fb-abd7-5c524c983e1c/l_BaseKit_p_2024.2.1.100.sh
+
+      # although we probably don't need this
+      # INTEL_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/d461a695-6481-426f-a22f-b5644cd1fa8b/l_HPCKit_p_2024.2.1.79.sh
 
     if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') || !contains(github.event.head_commit.message, '[skip linux ci]') }}
 
@@ -56,40 +61,32 @@ jobs:
       run: |
 
         mkdir ${LIB_DIR}
-
         # Add python to the path
-        echo "/opt/python/${USE_PYTHON_VERSION}-${USE_PYTHON_VERSION}/bin" >> $GITHUB_PATH
+        echo "/opt/python/${PYTHON_VERSION_STR}-${PYTHON_VERSION_STR}/bin" >> $GITHUB_PATH
 
     - name: Install Python Dependencies
       run: |
 
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
-        # not specified in petsc4py's requires section
-        pip install cython 'numpy<2' setuptools mkl==${MKL_VERSION} mkl-service
-        pip install pytest scipy
-        # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
+        # not specified in petsc4py's "requires" section
+        pip install cython 'numpy<2' setuptools
 
     - name: Install oneAPI MKL
       run: |
 
         MKL_NAME=l_onemkl_p_${MKL_VERSION}.664
-        ONEAPI_DIR=${{ env.LIB_DIR }}/oneAPI
-
-        # Download install script
-        curl -O -L ${{ env.MKL_BASE_URL }}/${MKL_NAME}.sh
+        ONEAPI_DIR=${LIB_DIR}/oneAPI
+        curl -O -L ${MKL_BASE_URL}/${MKL_NAME}.sh
 
         # Install
         sh ./${MKL_NAME}.sh -a --silent --eula accept --install-dir=$ONEAPI_DIR
 
         # This sets a bunch of variables including MKLROOT, PKG_CONFIG_PATH
-        source $ONEAPI_DIR/setvars.sh
+        source ${ONEAPI_DIR}/setvars.sh
 
         # expose the ones we need
         echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
-        # Add to PKG_CONFIG_PATH
-        # echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
     - name: Build MPICH
       run: |
@@ -112,11 +109,11 @@ jobs:
         # enable-fast=all/yes sets O2,ndebug,alwaysinline
 
         ../configure \
-          CFLAGS=${MPICH_FLAGS} \
-          CXXFLAGS=${MPICH_FLAGS} \
-          FCLAGS=${MPICH_FLAGS} \
-          FFLAGS=${MPICH_FLAGS} \
-          --prefix=${MPICH_INSTALL_DIR} \
+          CFLAGS=$MPICH_FLAGS \
+          CXXFLAGS=$MPICH_FLAGS \
+          FCLAGS=$MPICH_FLAGS \
+          FFLAGS=$MPICH_FLAGS \
+          --prefix=$MPICH_INSTALL_DIR \
           --enable-fast=all \
           --with-device=ch3:nemesis \
           --with-pm=hydra \
@@ -136,15 +133,12 @@ jobs:
         # PETSC
         PETSC_NAME=petsc-${PETSC_VERSION}
         PETSC_TAR=${PETSC_NAME}.tar.gz
-        PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
-        PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
+        PETSC_DIR=${LIB_DIR}/${PETSC_NAME}
 
-        curl -O -L ${PETSC_URL}
-        tar -xzf ${PETSC_TAR} -C ${{ env.LIB_DIR }}
+        curl -O -L ${PETSC_BASE_URL}/${PETSC_TAR}
+        tar -xzf ${PETSC_TAR} -C ${LIB_DIR}
         cd ${PETSC_DIR}
 
-        # configure
-        # PETSC_ARCH can be referenced as ${{ env.PETSC_ARCH }} or $PETSC_ARCH
         python configure \
         --PETSC_ARCH=${PETSC_ARCH} \
         --COPTFLAGS=${PETSC_FLAGS} \
@@ -180,8 +174,7 @@ jobs:
 
         # petsc4py reads configuration etc. from
         # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
-
-        python -m pip wheel -v --no-deps --no-build-isolation -w ${WHEEL_DIR} ${PETSC4PY_DIR}
+        pip wheel -v --no-deps --no-build-isolation -w ${WHEEL_DIR} ${PETSC4PY_DIR}
 
         # env vars defined by manylinux:
         # AUDITWHEEL_PLAT = AUDITWHEEL_POLICY + AUDITWHEEL_ARCH
@@ -193,13 +186,17 @@ jobs:
 
         # Filename of the fixed wheel
         PACKAGE_TAG="petsc4py-${PETSC_VERSION}"
-        PYTHON_ABI_TAG="${{ env.USE_PYTHON_VERSION }}-${{ env.USE_PYTHON_VERSION }}"
+        PYTHON_ABI_TAG="${PYTHON_VERSION_STR}-${PYTHON_VERSION_STR}"
         WHEEL_FILENAME=${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_ABI_TAG}-${AUDITWHEEL_PLAT}.whl
 
-        # Fix rpaths in wheel: unpack, fix, pack
-        python -m wheel unpack ${WHEEL_FILENAME} -d ${WHEEL_DIR}
+        # We still need to fix some rpaths in the repaired wheel (e.g., point
+        # to MKL)
 
-        # Enable link with MKL pypi package
+        # (1) Unpack
+        wheel unpack ${WHEEL_FILENAME} -d ${WHEEL_DIR}
+
+        # (2) Fix
+        # Enable link with MKL package from PyPI
         # add rpath entry to .../lib/
         # from .../lib/pythonX.Y/site-packages/petsc4py/lib/arch-X/
         patchelf --add-rpath \$ORIGIN/../../../../.. ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py/lib/${PETSC_ARCH}/PETSc*.so
@@ -207,41 +204,68 @@ jobs:
         patchelf --add-rpath \$ORIGIN/../../.. ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py.libs/libpetsc*
         patchelf --add-rpath \$ORIGIN/../../.. ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py.libs/libHYPRE*
 
-        # it seems that libmpifort does not get $ORIGIN in rpath although it
+        # It seems that libmpifort does not get $ORIGIN in rpath although it
         # requires pciaccess, so fix that
         patchelf --set-rpath \$ORIGIN ${WHEEL_DIR}/${PACKAGE_TAG}/petsc4py.libs/libmpi*
 
-        # pack the modified wheel
-        python -m wheel pack ${WHEEL_DIR}/${PACKAGE_TAG} -d ${WHEEL_DIR}
+        # (3) pack the modified wheel
+        wheel pack ${WHEEL_DIR}/${PACKAGE_TAG} -d ${WHEEL_DIR}
 
         echo "WHEEL_DIR=${WHEEL_DIR}" >> $GITHUB_ENV
         echo "WHEEL_FILENAME=${WHEEL_FILENAME}" >> $GITHUB_ENV
 
     - name: Install petsc4py
-      run: python -m pip install ${WHEEL_FILENAME}
+      run: pip install ${WHEEL_FILENAME}
 
-  # test:
-  #   needs: build
-
-    - name: Running tests shipped with petsc4py
+    - name: Running petsc4py tests
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary --no-builddir
 
-    - name: Running internal tests
-      run: pytest tests -v
-
-  # publish:
-  #   needs: build
-
-  #   steps:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
-      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       with:
         name: linux-wheels
-        path: ${{ env.WHEEL_DIR }}/*.whl
+        path: ${{ env.WHEEL_DIR }}/*${{ vars.MANYLINUX_PLATFORM }}.whl
+
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/${{ vars.MANYLINUX_PLATFORM }}
+    env:
+      PYTHON_VERSION_STR: cp311
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-wheels
+        path: ${{ github.workspace }}
+    - name: List artifact contents
+      run: ls
+    - name: Setup python
+      run: echo "/opt/python/${PYTHON_VERSION_STR}-${PYTHON_VERSION_STR}/bin" >> $GITHUB_PATH
+    - name: Install python packages
+      run: pip install mkl==$MKL_VERSION numpy==1.26 pytest scipy petsc4py*.whl
+    - name: Running tests
+      run: pytest tests -v
+
+  publish:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Downloads artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-wheels
+        path: ${{ github.workspace }}
 
     - name: Release
       uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: ${{ env.WHEEL_DIR }}/*.whl
+        files: ${{ github.workspace }}/*.whl

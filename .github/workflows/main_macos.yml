@@ -27,7 +27,7 @@ jobs:
       # store libraries in here
       LIB_DIR: ${{ github.workspace }}
 
-      PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
+      PETSC_BASE_URL: ${{ vars.PETSC_BASE_URL }}
 
     if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') || !contains(github.event.head_commit.message, '[skip macos ci]') }}
 
@@ -35,14 +35,15 @@ jobs:
       # checkout repository
       # checkout@v4 does not seem to work with containers
       # https://github.com/actions/checkout/issues/1474
-    - uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v3
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install Python Dependencies
+    - name: Install python dependencies
       run: |
 
         # Install build dependencies manually and use --no-build-isolation
@@ -66,7 +67,8 @@ jobs:
       id: cache-petsc
       run: |
         PETSC_NAME=petsc-$PETSC_VERSION
-        PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
+        PETSC_DIR=${LIB_DIR}/${PETSC_NAME}
+
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
 
@@ -79,18 +81,14 @@ jobs:
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
-        # PETSC
         PETSC_NAME=petsc-$PETSC_VERSION
         PETSC_TAR=${PETSC_NAME}.tar.gz
-        PETSC_URL=https://web.cels.anl.gov/projects/petsc/download/release-snapshots/${PETSC_TAR}
-        PETSC_DIR=${{ env.LIB_DIR }}/${PETSC_NAME}
+        PETSC_DIR=${LIB_DIR}/${PETSC_NAME}
 
-        curl -O -L ${PETSC_URL}
-        tar -xzf ${PETSC_TAR} -C ${{ env.LIB_DIR }}
+        curl -O -L ${PETSC_BASE_URL}/${PETSC_TAR}
+        tar -xzf ${PETSC_TAR} -C ${LIB_DIR}
         cd ${PETSC_DIR}
 
-        # configure
-        # PETSC_ARCH can be referenced as ${{ env.PETSC_ARCH }} or $PETSC_ARCH
         python configure \
         --PETSC_ARCH=${PETSC_ARCH} \
         --COPTFLAGS=${PETSC_FLAGS} \
@@ -110,9 +108,6 @@ jobs:
 
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
-
-        # add to PKG_CONFIG_PATH
-        # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
     - uses: actions/cache/save@v4
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
@@ -147,7 +142,7 @@ jobs:
         # MACOSX_DEPLOYMENT_TARGET to 11.0 which is the minimum target that
         # is supported on arm64 machines. However, currently we build on 14.0
         # so I set this manually for now.
-        python -m cibuildwheel --output-dir ${WHEEL_DIR} ${PETSC4PY_DIR}
+        cibuildwheel --output-dir ${WHEEL_DIR} ${PETSC4PY_DIR}
 
         # petsc4py-3.21.3-cp311-cp311-macosx-14_0_arm64.whl
         WHEEL_FILENAME=${WHEEL_DIR}/*.whl
@@ -161,89 +156,63 @@ jobs:
         CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation" # additional args
         MACOSX_DEPLOYMENT_TARGET: "14.0"
 
-    # - name: Build wheel for petsc4py
-    #   run: |
-
-    #     echo "Using PETSC_DIR   ${PETSC_DIR}"
-    #     echo "Using PETSC_ARCH  ${PETSC_ARCH}"
-    #     which python
-
-    #     WHEEL_DIR=${PETSC4PY_DIR}/wheelhouse
-
-    #     # otools -L /path/to/.dylib
-
-    #     # petsc4py reads configuration etc. from
-    #     # ${PETSC_DIR}/${PETSC_ARCH}/lib/petsc/conf/petscvariables
-
-    #     python -m pip wheel -v --no-deps --no-build-isolation -w ${WHEEL_DIR} ${PETSC4PY_DIR}
-
-    #     # overwrites old wheel
-    #     echo "What wheels exist?"
-    #     ls ${WHEEL_DIR}/*.whl
-
-    #     echo "List all dependencies"
-    #     delocate-listdeps ${WHEEL_DIR}/*.whl --all
-
-    #     echo "List some dependencies"
-    #     delocate-listdeps ${WHEEL_DIR}/*.whl
-
-    #     delocate-wheel --require-archs=arm64 -w ${WHEEL_DIR} ${WHEEL_DIR}/*.whl
-
-    #     # Filename of the fixed wheel
-    #     PACKAGE_TAG="petsc4py-${{ vars.PETSC_VERSION }}"
-    #     #PYTHON_ABI_TAG="${{ matrix.python-version }}-${{ matrix.python-version }}"
-    #     PYTHON_ABI_TAG="cp311-cp311"
-    #     PLATFORM_TAG=$(python -c "import sysconfig; print(sysconfig.get_platform())")
-
-    #     # petsc4py-3.21.3-cp311-cp311-macosx-14_0_arm64.whl
-    #     WHEEL_FILENAME=${WHEEL_DIR}/${PACKAGE_TAG}-${PYTHON_ABI_TAG}-${PLATFORM_TAG}.whl
-
-    #     echo "WHEEL_DIR=${WHEEL_DIR}" >> $GITHUB_ENV
-    #     echo "WHEEL_FILENAME=${WHEEL_FILENAME}" >> $GITHUB_ENV
-
     - name: Install petsc4py
-      run: python -m pip install ${WHEEL_FILENAME}
+      run: pip install ${WHEEL_FILENAME}
 
-  # test:
-  #   needs: build
-
-  #   steps:
-    # - name: Install test dependencies
-    #   run: pip install pytest
-
-    - name: Running tests (from petsc4py)
+    - name: Running petsc4py tests
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary --no-builddir
 
-    - name: Install test dependencies
-      run: pip install pytest scipy
-
-    - name: Running tests (internal)
-      run: pytest tests
-
-  # publish:
-  #   needs: test
-
-    # steps:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
-      if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
       with:
         name: macos-wheels
         path: ${{ env.WHEEL_DIR }}/*.whl
 
+  test:
+    name: Test
+    needs: build
+    runs-on: macos-14
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: macos-wheels
+        path: ${{ github.workspace }}
+    - name: List artifact contents
+      run: ls
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install python packages
+      run: pip install numpy==1.26 pytest scipy petsc4py*.whl
+    - name: Running tests
+      run: pytest tests -v
+
+  publish:
+    name: Publish
+    needs: test
+    # OS not important here
+    runs-on: macos-14
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: macos-wheels
+        path: ${{ github.workspace }}
     - name: Release
       uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: |
-          ${{ env.WHEEL_DIR }}/*.whl
-
-        # body_path: CHANGELOG.md
-        # repository: my_gh_org/my_gh_repo
-        # # note you'll typically need to create a personal access token
-        # # with permissions to create releases in the other repo
-        # token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-
+        files: ${{ github.workspace }}/*.whl
 
     # - name: Upload to PyPI
     #   if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
@@ -253,3 +222,5 @@ jobs:
     #   env:
     #     PASSWORD: ${{ secrets.PYPI_TOKEN }}
     #     PYTHON: /opt/python/cp38-cp38/bin/python
+
+

@@ -25,15 +25,14 @@ jobs:
       #   settings - secrets and variables - actions - variables
       PETSC_ARCH: arch-win-c-opt
       PETSC_VERSION: ${{ vars.PETSC_VERSION }}
-
       PETSC_FLAGS: -O2 # C, CXX, F
 
       # store libraries in here
       LIB_DIR: ${{ github.workspace }}
 
-      PETSC_BASE_URL: https://web.cels.anl.gov/projects/petsc/download/release-snapshots
-
+      PETSC_BASE_URL: ${{ vars.PETSC_BASE_URL}}
       HYPRE_BASE_URL: https://github.com/hypre-space/hypre/archive/refs/tags
+      MSMPI_BASE_URL: https://download.microsoft.com/download/A/E/0/AE002626-9D9D-448D-8197-1EA510E297CE
 
       # OneAPI: 2024.2.1
       INTEL_BASEKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/d91caaa0-7306-46ea-a519-79a0423e1903/w_BaseKit_p_2024.2.1.101.exe
@@ -42,12 +41,10 @@ jobs:
       INTEL_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/745e923a-3f85-4e1e-b6dd-637c0e9ccba6/w_HPCKit_p_2024.2.1.80.exe
       INTEL_HPCKIT_COMPONENTS: intel.oneapi.win.ifort-compiler
 
-      MSMPI_BASE_URL: https://download.microsoft.com/download/A/E/0/AE002626-9D9D-448D-8197-1EA510E297CE
-
     if: ${{ startsWith(github.ref, 'refs/tags') || !contains(github.event.head_commit.message, '[skip ci]') || !contains(github.event.head_commit.message, '[skip windows ci]') }}
 
     steps:
-    - name: set git stuff
+    - name: Configure git
       run: git config --global core.autocrlf input
 
     - name: Checkout
@@ -61,18 +58,16 @@ jobs:
     - name: Install MS-MPI
       run: |
 
-        curl -O %MSMPI_BASE_URL%/msmpisetup.exe
-        curl -O %MSMPI_BASE_URL%/msmpisdk.msi
-
-        REM Install to default location (%ProgramFiles%\Microsoft MPI)
-        REM msmpisetup.exe -unattend -installroot .\msmpi
-
         echo Installing MSMPI exec
+
+        curl -O %MSMPI_BASE_URL%/msmpisetup.exe
+        REM Default location is %ProgramFiles%\Microsoft MPI
         msmpisetup.exe -unattend
 
-        REM Install to default location (%ProgramFiles(x86)%\Microsoft SDKs\MPI)
-
         echo Installing MSMPI SDK
+
+        curl -O %MSMPI_BASE_URL%/msmpisdk.msi
+        REM Default location is %ProgramFiles(x86)%\Microsoft SDKs\MPI
         msmpisdk.msi /quiet /passive /qn /norestart
 
         echo MSMPI_BIN=%ProgramFiles%\Microsoft MPI\Bin>> %GITHUB_ENV%
@@ -83,7 +78,6 @@ jobs:
     # Following instructions from here except we use the online installers
     # as we only need a subset of the components
     # https://github.com/oneapi-src/oneapi-ci/blob/master/.github/workflows/build_all.yml
-
 
     - uses: actions/cache/restore@v4
       id: oneapi-cache
@@ -109,18 +103,13 @@ jobs:
       run: |
 
         set SETVARS="%ProgramFiles(x86)%\Intel\oneAPI\setvars.bat"
-
-        call %SETVARS%
-
-        echo Environment variables
-        set
-
-        REM echo Check VS compiler
-        REM cl
-        REM echo Check Intel compiler
-        REM ifort /help
-
         echo SETVARS=%SETVARS%>> %GITHUB_ENV%
+
+        REM List environment variables
+
+        REM call %SETVARS%
+        REM echo Environment variables
+        REM set
 
     - name: Build HYPRE
       run: |
@@ -130,8 +119,6 @@ jobs:
         curl -O -L %HYPRE_BASE_URL%/v2.31.0.tar.gz
         tar -x -z -f v2.31.0.tar.gz
         cd hypre-2.31.0/src
-
-        REM -DHYPRE_WITH_CXXSTANDARD=c++20 ^
 
         REM will pick up Intel MPI automatically because of SETVARS!
 
@@ -147,7 +134,7 @@ jobs:
         cmake --build cmbuild --config Release
         cmake --install cmbuild
 
-        REM The default installation path ("prefix") is in `src/hypre`.
+        REM The default installation path ("prefix") is `src/hypre`, therefore
         REM we now have /hypre-2.31.0/src/hypre
 
         echo HYPRE_INSTALL_DIR=%GITHUB_WORKSPACE%\hypre-2.31.0\src\hypre>> %GITHUB_ENV%
@@ -218,18 +205,27 @@ jobs:
         REM We do this to avoid building against numpy 2 as the numpy version is
         REM not specified in petsc4py's requires section
 
-        pip install cython delvewheel mkl==${{ vars.MKL_VERSION }} numpy==1.26 setuptools wheel
-        pip install pytest scipy
+        pip install cython delvewheel numpy==1.26 setuptools wheel
 
-        REM if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Set variables
+      shell: powershell
+      run: |
+
+        # cpython version string representation, e.g., 3.11 -> cp311
+        $pythonVersionStr = python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')"
+        echo $pythonVersionStr
+
+        $CLArgs = python tools\windows_extract_args_from_petscvariables.py $PETSC_DIR\$PETSC_ARCH\lib\petsc\conf\petscvariables CC_FLAGS
+        echo $CLArgs
+
+        echo "pythonVersionStr=$pythonVersionStr" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+        echo "CL=$CLArgs" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Build petsc4py
       run: |
 
         REM Fix petscvariables
 
-        REM replace cygwin paths with windows paths in `petscvariables` file
-        REM the '' around PETSC_DIR are important to protect \ in path
         bash --login -o igncr -eo pipefail %cd%\tools\windows_prepare_petscvariables.sh %PETSC_DIR% %PETSC_ARCH%
 
         REM Download petsc4py and build wheel
@@ -240,18 +236,11 @@ jobs:
         set PETSC4PY_DIR=%cd%\petsc4py-%PETSC_VERSION%
         set WHEEL_DIR=%PETSC4PY_DIR%\wheelhouse
 
-        REM Flags from petscvariables are not read unless GCC was used so we
+        REM Flags from petscvariables are not read (unless GCC was used) so we
         REM need to set them manually
         set CL=-GF -MD -wd4996 -Zc:preprocessor  -O2
 
         REM for /f %i in ('python tools\windows_extract_args_from_petscvariables.py C:\Users\jdue\cygwin\home\jdue\petsc-3.21.4\arch-mswin-c-opt-mkl\lib\petsc\conf\petscvariables CC_FLAGS') do set CL=%i
-
-        REM we need to add HYPRE and msmpi
-        REM we need to add
-        REM "libraries":["msmpi"],
-        REM "library_dirs":[r"C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64"],
-        REM                r'C:\Users\jdue\Documents\petscbuild\hypre-2.31.0\src\hypre\lib'],
-        REM pip install --global-option="-LC:\\Program Files\ (x86)\Microsoft\ SDKs\\MPI\\Lib\\x64 -L" --build-option="-llibpetsc -lmsmpi -lHYPRE -lmkl_tbb_thread"
 
         echo Patching petsc4py before build
         python tools\windows_patch_petsc4py_pre_build.py %PETSC4PY_DIR%
@@ -270,6 +259,8 @@ jobs:
         REM Show dependencies that needs to be vendored into the wheel
         delvewheel show --analyze-existing --add-path %PETSC_DIR%\%PETSC_ARCH%\lib;%HYPRE_INSTALL_DIR%\bin %WHEEL_DIR%\%WHEEL_NAME%
 
+        REM Unpack -> vendor DLLs in -> patch -> repack
+
         wheel unpack -d %WHEEL_DIR% %WHEEL_DIR%\%WHEEL_NAME%
         set UNPACK_DIR=%WHEEL_DIR%\petsc4py-%PETSC_VERSION%
 
@@ -282,8 +273,6 @@ jobs:
         copy C:\WINDOWS\system32\msmpi.dll %DLL_DIR%
         copy C:\WINDOWS\system32\msvcp140.dll %DLL_DIR%
 
-        REM Append to file in order to discover MKL DLLs
-
         echo Patching petsc4py after build
         python tools\windows_patch_petsc4py_post_build.py %UNPACK_DIR%
 
@@ -294,35 +283,62 @@ jobs:
     - name: Install petsc4py
       run: pip install %WHEEL_DIR%\%WHEEL_NAME%
 
-    - name: Running tests shipped with petsc4py
+    - name: Running petsc4py tests
       run: python %PETSC4PY_DIR%\test\runtests.py --summary --no-builddir
-
-    - name: Running internal tests
-      run: pytest tests -v
-
-  # publish:
-  #   needs: build
-
-  #   steps:
-
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
-      if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
       with:
         name: windows-wheels
-        path: ${{ env.WHEEL_DIR }}/petsc4py*.whl
+        path: ${{ env.WHEEL_DIR }}/*.whl
 
-    # Downloads to GITHUB_WORKSPACE by default
-    # - uses: actions/download-artifact@v4
-    #   with:
-    #     name: windows-wheels
-    # - name: Display stuff
-    #   run: dir
+  test:
+    name: Test Artifact
+    needs: build
+    runs-on: windows-2022
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11"]
+    defaults:
+      run:
+        shell: cmd
 
+    steps:
+    - name: Configure git
+      run: git config --global core.autocrlf input
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-wheels
+        path: ${{ github.workspace }}
+    - name: List artifact contents
+      run: dir
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install python packages
+      run: pip install mkl==${{ vars.MKL_VERSION }} numpy==1.26 pytest scipy petsc4py*.whl
+    - name: Running tests
+      run: pytest tests -v
+
+  publish:
+    name: Publish
+    needs: test
+    # OS not important here
+    runs-on: windows-2022
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-wheels
+        path: ${{ github.workspace }}
     - name: Release
       uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: |
-          ${{ env.WHEEL_DIR }}/*.whl
+        files: ${{ github.workspace }}/*.whl

@@ -194,15 +194,15 @@ class TestKSP:
                     reason="PETSc is not built with Intel MKL on macos."
                 ),
             ),
-            # pytest.param(
-            #     PETSc.KSP.Type.PREONLY,
-            #     PETSc.PC.Type.CHOLESKY,
-            #     PETSc.Mat.SolverType.MKL_PARDISO,
-            #     marks=pytest.mark.skipif(
-            #         sys.platform == "darwin",
-            #         reason="PETSc is not built with Intel MKL on macos."
-            #     ),
-            # ),
+            pytest.param(
+                PETSc.KSP.Type.PREONLY,
+                PETSc.PC.Type.CHOLESKY,
+                PETSc.Mat.SolverType.MKL_PARDISO,
+                marks=pytest.mark.skipif(
+                    sys.platform == "darwin",
+                    reason="PETSc is not built with Intel MKL on macos."
+                ),
+            ),
             pytest.param(
                 PETSc.KSP.Type.PREONLY,
                 PETSc.PC.Type.LU,

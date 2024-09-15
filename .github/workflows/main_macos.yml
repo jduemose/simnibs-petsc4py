@@ -49,15 +49,11 @@ jobs:
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's requires section
-        # pip install cython 'numpy<2' setuptools wheel
-        # pip install pytest
         pip install cibuildwheel
 
         # cpython version string representation, e.g., 3.11 -> cp311
         PYTHON_VERSION_STR=$(python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')")
         echo "PYTHON_VERSION_STR=${PYTHON_VERSION_STR}" >> $GITHUB_ENV
-
-        # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: Homebrew - install packages
       # make is installed as gmake
@@ -174,7 +170,6 @@ jobs:
       fail-fast: true
       matrix:
         python-version: ["3.11"]
-
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -198,7 +193,6 @@ jobs:
     # OS not important here
     runs-on: macos-14
     if: startsWith(github.ref, 'refs/tags/')
-
     steps:
     - name: Artifact - download
       uses: actions/download-artifact@v4

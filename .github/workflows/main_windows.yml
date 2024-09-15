@@ -321,7 +321,6 @@ jobs:
     defaults:
       run:
         shell: cmd
-
     steps:
     - name: Configure git
       run: git config --global core.autocrlf input
@@ -350,7 +349,6 @@ jobs:
     # OS not important here
     runs-on: windows-2022
     if: startsWith(github.ref, 'refs/tags/')
-
     steps:
     - name: Artifact - download
       uses: actions/download-artifact@v4

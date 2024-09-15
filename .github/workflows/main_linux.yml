@@ -22,7 +22,6 @@ jobs:
       #   settings - secrets and variables - actions - variables
       PETSC_ARCH: arch-linux-c-opt
       PETSC_VERSION: ${{ vars.PETSC_VERSION }}
-      MKL_VERSION: ${{ vars.MKL_VERSION }}
       MPICH_VERSION: ${{ vars.MPICH_VERSION }}
 
       # Compile flags (C/CXX/F)
@@ -41,7 +40,11 @@ jobs:
 
       MPICH_BASE_URL: https://www.mpich.org/static/downloads
       PETSC_BASE_URL: ${{ vars.PETSC_BASE_URL }}
-      MKL_BASE_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/cdff21a5-6ac7-4b41-a7ec-351b5f9ce8fd
+
+
+      MKL_VERSION: ${{ vars.MKL_VERSION }}
+      MKL_NAME: l_onemkl_p_2024.2.1.105
+      MKL_BASE_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/6e00e368-b61d-4f87-a409-9b510c022a37
 
       # Perhaps use these instead to be consistent with windows
       # INTEL_BASEKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/e6ff8e9c-ee28-47fb-abd7-5c524c983e1c/l_BaseKit_p_2024.2.1.100.sh
@@ -70,12 +73,11 @@ jobs:
         # Install build dependencies manually and use --no-build-isolation
         # We do this to avoid building against numpy 2 as the numpy version is
         # not specified in petsc4py's "requires" section
-        pip install cython mkl==$MKL_VERSION 'numpy<2' setuptools
+        pip install cython mkl==$MKL_VERSION numpy==1.26
 
     - name: Intel OneAPI - install MKL
       run: |
 
-        MKL_NAME=l_onemkl_p_${MKL_VERSION}.664
         ONEAPI_DIR=${LIB_DIR}/oneAPI
         curl -O -L ${MKL_BASE_URL}/${MKL_NAME}.sh
 
@@ -269,7 +271,6 @@ jobs:
       image: quay.io/pypa/${{ vars.MANYLINUX_PLATFORM }}
     env:
       PYTHON_VERSION_STR: cp311
-
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -290,7 +291,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-
     steps:
     - name: Artifact - download
       uses: actions/download-artifact@v4

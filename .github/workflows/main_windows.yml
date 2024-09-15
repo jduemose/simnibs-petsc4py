@@ -227,34 +227,25 @@ jobs:
         REM We do this to avoid building against numpy 2 as the numpy version is
         REM not specified in petsc4py's requires section
 
-        set
-
-        where python
-        where pip
-
         pip install cython delvewheel mkl==${{ vars.MKL_VERSION }} numpy==1.26 wheel
 
     - name: Set miscellaneous variables
       shell: pwsh
       run: |
 
-        echo $Env:Path
-
-        Get-Command python | Format-Table CommandType, Name, Definition
-        Get-Command pip | Format-Table CommandType, Name, Definition
-
         # cpython version string representation, e.g., 3.11 -> cp311
         $pythonVersionStr = python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')"
         echo "pythonVersionStr=$pythonVersionStr" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
 
-        REM Flags from petscvariables are not read (unless GCC was used) so we
-        REM need to set them manually
-        REM set CL=-GF -MD -wd4996 -Zc:preprocessor  -O2
+        echo Python version string: $pythonVersionStr
+
+        # Flags from petscvariables are not read (unless GCC was used) so we
+        # need to set them manually
+        # set CL=-GF -MD -wd4996 -Zc:preprocessor  -O2
 
         $CLArgs = python tools\windows_extract_args_from_petscvariables.py $PETSC_DIR\$PETSC_ARCH\lib\petsc\conf\petscvariables CC_FLAGS
-        echo "Using the following args for CL: $CLArgs"
-
         echo "CL=$CLArgs" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+        echo "Using the following args for CL: $CLArgs"
 
     - name: petsc4py - build
       run: |

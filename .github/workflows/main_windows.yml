@@ -52,11 +52,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Python - set up ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
     - name: MS-MPI - install
       run: |
 
@@ -220,6 +215,11 @@ jobs:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
+    - name: Python - set up ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
     - name: Python - install dependencies
       run: |
 
@@ -227,11 +227,21 @@ jobs:
         REM We do this to avoid building against numpy 2 as the numpy version is
         REM not specified in petsc4py's requires section
 
+        set
+
+        where python
+        where pip
+
         pip install cython delvewheel mkl==${{ vars.MKL_VERSION }} numpy==1.26 wheel
 
     - name: Set miscellaneous variables
       shell: pwsh
       run: |
+
+        echo $Env:Path
+
+        Get-Command python | Format-Table CommandType, Name, Definition
+        Get-Command pip | Format-Table CommandType, Name, Definition
 
         # cpython version string representation, e.g., 3.11 -> cp311
         $pythonVersionStr = python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')"

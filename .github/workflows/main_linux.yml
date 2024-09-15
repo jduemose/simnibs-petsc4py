@@ -64,7 +64,7 @@ jobs:
         # Add python to the path
         echo "/opt/python/${PYTHON_VERSION_STR}-${PYTHON_VERSION_STR}/bin" >> $GITHUB_PATH
 
-    - name: Install Python Dependencies
+    - name: Python - install dependencies
       run: |
 
         # Install build dependencies manually and use --no-build-isolation
@@ -72,7 +72,7 @@ jobs:
         # not specified in petsc4py's "requires" section
         pip install cython mkl==$MKL_VERSION 'numpy<2' setuptools
 
-    - name: Install oneAPI MKL
+    - name: Intel OneAPI - install MKL
       run: |
 
         MKL_NAME=l_onemkl_p_${MKL_VERSION}.664
@@ -88,7 +88,7 @@ jobs:
         # expose the ones we need
         echo "MKLROOT=${MKLROOT}" >> $GITHUB_ENV
 
-    - name: Set MPICH variables
+    - name: MPICH - set variables
       run: |
 
         MPICH_NAME=mpich-${MPICH_VERSION}
@@ -100,14 +100,14 @@ jobs:
         echo "MPICH_INSTALL_DIR=${MPICH_INSTALL_DIR}" >> $GITHUB_ENV
         # echo "PKG_CONFIG_PATH=${MPICH_INSTALL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
-    - name: Restore MPICH (cache)
+    - name: MPICH - restore (cache)
       uses: actions/cache/restore@v4
       id: cache-mpich
       with:
         path: ${{ env.MPICH_INSTALL_DIR }}
         key: ${{ runner.os }}-mpich
 
-    - name: Build MPICH
+    - name: MPICH - build
       if: ${{ steps.cache-mpich.outputs.cache-hit != 'true' }}
       run: |
 
@@ -137,14 +137,14 @@ jobs:
         make
         make install
 
-    - name: Save MPICH (cache)
+    - name: MPICH - save (cache)
       uses: actions/cache/save@v4
       if: ${{ steps.cache-mpich.outputs.cache-hit != 'true' }}
       with:
         path: ${{ env.MPICH_INSTALL_DIR }}
         key: ${{ runner.os }}-mpich
 
-    - name: Set PETSc variables
+    - name: PETSc - set variables
       run: |
 
         PETSC_NAME=petsc-${PETSC_VERSION}
@@ -155,14 +155,14 @@ jobs:
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
 
-    - name: Restore PETSc (cache)
+    - name: PETSc - restore (cache)
       uses: actions/cache/restore@v4
       id: cache-petsc
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
-    - name: Build PETSc
+    - name: PETSc - build
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
@@ -192,14 +192,14 @@ jobs:
         # add to PKG_CONFIG_PATH
         # echo "PKG_CONFIG_PATH=${PETSC_DIR}/${PETSC_ARCH})/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
-    - name: Save PETSc (cache)
+    - name: PETSc - save (cache)
       uses: actions/cache/save@v4
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
-    - name: Build petsc4py
+    - name: petsc4py - build
       run: |
 
         echo "Using PETSC_DIR   ${PETSC_DIR}"
@@ -249,13 +249,13 @@ jobs:
         echo "WHEEL_DIR=${WHEEL_DIR}" >> $GITHUB_ENV
         echo "WHEEL_FILENAME=${WHEEL_FILENAME}" >> $GITHUB_ENV
 
-    - name: Install petsc4py
+    - name: petsc4py - install
       run: pip install ${WHEEL_FILENAME}
 
-    - name: Running petsc4py tests
+    - name: petsc4py - test
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary --no-builddir
 
-    - name: Upload artifact
+    - name: Artifact - upload
       uses: actions/upload-artifact@v4
       with:
         name: linux-wheels
@@ -273,18 +273,16 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
-    - name: Download artifact
+    - name: Artifact - download
       uses: actions/download-artifact@v4
       with:
         name: linux-wheels
         path: ${{ github.workspace }}
-    - name: List artifact contents
-      run: ls
-    - name: Setup python
+    - name: python - setup
       run: echo "/opt/python/${PYTHON_VERSION_STR}-${PYTHON_VERSION_STR}/bin" >> $GITHUB_PATH
-    - name: Install python packages
+    - name: python - install packages
       run: pip install mkl==${{ vars.MKL_VERSION}} numpy==1.26 pytest scipy petsc4py*.whl
-    - name: Running tests
+    - name: petsc4py - test
       run: pytest tests -v
 
   publish:
@@ -294,13 +292,12 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-    - name: Downloads artifact
+    - name: Artifact - download
       uses: actions/download-artifact@v4
       with:
         name: linux-wheels
         path: ${{ github.workspace }}
-
-    - name: Release
+    - name: Artifact - release
       uses: softprops/action-gh-release@v2
       with:
         files: ${{ github.workspace }}/*.whl

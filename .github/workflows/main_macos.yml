@@ -38,12 +38,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Python - set up ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install python dependencies
+    - name: Python - install dependencies
       run: |
 
         # Install build dependencies manually and use --no-build-isolation
@@ -59,11 +59,11 @@ jobs:
 
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    - name: Prepare
+    - name: Homebrew - install packages
       # make is installed as gmake
       run: brew upgrade && brew install make && brew cleanup
 
-    - name: Set PETSc variables
+    - name: PETSc - set variables
       run: |
 
         PETSC_NAME=petsc-${PETSC_VERSION}
@@ -74,14 +74,14 @@ jobs:
         echo "PETSC_DIR=${PETSC_DIR}" >> $GITHUB_ENV
         echo "PETSC4PY_DIR=${PETSC_DIR}/src/binding/petsc4py" >> $GITHUB_ENV
 
-    - name: Restore PETSc (cache)
+    - name: PETSc - restore (cache)
       uses: actions/cache/restore@v4
       id: cache-petsc
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
-    - name: Build PETSc
+    - name: PETSc - build
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       run: |
 
@@ -106,14 +106,14 @@ jobs:
         gmake all
         gmake check
 
-    - name: Save PETSc (cache)
+    - name: PETSc - save (cache)
       uses: actions/cache/save@v4
       if: ${{ steps.cache-petsc.outputs.cache-hit != 'true' }}
       with:
         path: ${{ env.PETSC_DIR }}
         key: ${{ runner.os }}-petsc
 
-    - name: Build petsc4py
+    - name: petsc4py - build
       run: |
 
         echo "Using PETSC_DIR   ${PETSC_DIR}"
@@ -154,13 +154,13 @@ jobs:
         CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation" # additional args
         MACOSX_DEPLOYMENT_TARGET: "14.0"
 
-    - name: Install petsc4py
+    - name: petsc4py - install
       run: pip install ${WHEEL_FILENAME}
 
-    - name: Running petsc4py tests
+    - name: petsc4py - test
       run: python ${PETSC4PY_DIR}/test/runtests.py --summary --no-builddir
 
-    - name: Upload artifact
+    - name: Artifact - upload
       uses: actions/upload-artifact@v4
       with:
         name: macos-wheels
@@ -178,20 +178,18 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
-    - name: Download artifact
+    - name: Artifact - download
       uses: actions/download-artifact@v4
       with:
         name: macos-wheels
         path: ${{ github.workspace }}
-    - name: List artifact contents
-      run: ls
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Python - set up ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install python packages
+    - name: Python - install packages
       run: pip install numpy==1.26 pytest scipy petsc4py*.whl
-    - name: Running tests
+    - name: petsc4py - test
       run: pytest tests -v
 
   publish:
@@ -202,12 +200,12 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-    - name: Download artifact
+    - name: Artifact - download
       uses: actions/download-artifact@v4
       with:
         name: macos-wheels
         path: ${{ github.workspace }}
-    - name: Release
+    - name: Artifact - Release
       uses: softprops/action-gh-release@v2
       with:
         files: ${{ github.workspace }}/*.whl

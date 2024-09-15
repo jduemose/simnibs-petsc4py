@@ -237,13 +237,11 @@ jobs:
         $pythonVersionStr = python -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')"
         echo "pythonVersionStr=$pythonVersionStr" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
 
-        echo Python version string: $pythonVersionStr
-
         # Flags from petscvariables are not read (unless GCC was used) so we
         # need to set them manually
         # set CL=-GF -MD -wd4996 -Zc:preprocessor  -O2
 
-        $CLArgs = python tools\windows_extract_args_from_petscvariables.py $PETSC_DIR\$PETSC_ARCH\lib\petsc\conf\petscvariables CC_FLAGS
+        $CLArgs = python tools\windows_extract_args_from_petscvariables.py $Env:PETSC_DIR\$Env:PETSC_ARCH\lib\petsc\conf\petscvariables CC_FLAGS
         echo "CL=$CLArgs" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
         echo "Using the following args for CL: $CLArgs"
 

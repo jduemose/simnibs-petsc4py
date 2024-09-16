@@ -19,9 +19,8 @@ This repository provides [petsc4py](https://petsc.org/main/petsc4py/reference/pe
 - Compile HYPRE against MKL BLAS on linux, windows?
 
 ### Windows
-- Read compiler arguments from petscvariables (at the moment, they are hardcoded!).
-- Use * to glob for wheel file. (at the moment, it is hardcoded!). Perhaps via. powershell as cmd does not seem to support wildcard expansion in the shell.
 - Convert from command prompt to powershell?
+- The test with real data using MKL PARDISO with cholesky factorization fails. Not sure why.
 
 ### MacOS
 - Test threading

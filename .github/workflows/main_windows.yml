@@ -346,6 +346,8 @@ jobs:
   publish:
     name: Publish
     needs: test
+    permissions:
+      contents: write
     # OS not important here
     runs-on: windows-2022
     if: startsWith(github.ref, 'refs/tags/')
